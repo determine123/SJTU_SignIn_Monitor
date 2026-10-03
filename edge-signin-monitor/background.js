@@ -73,6 +73,7 @@ async function planClasses(){
 async function classReminder(name){
  const {classDue={},classSent={},classEnabled=true}=await chrome.storage.local.get(['classDue','classSent','classEnabled']);const event=classDue[name];
  if(!await active()||!classEnabled||!event||event.classAt<=Date.now()||classSent[event.key]){await planClasses();return;}
+ if(Date.now()<event.when){await chrome.alarms.create(name,{when:event.when});return;}
  // Commit before notifications, so repeated alarms cannot duplicate the reminder.
  classSent[event.key]=Date.now();for(const k of Object.keys(classSent))if(classSent[k]<Date.now()-90*86400000)delete classSent[k];await chrome.storage.local.set({classSent});
  const r=event.row;const s=await settings();const title='上课提醒：'+r.name;const minutes=Math.max(1,Math.ceil((event.classAt-Date.now())/60000));const message=event.date+' '+r.time+' 上课（约 '+minutes+' 分钟后）\n'+(r.location||'');

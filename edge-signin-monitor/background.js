@@ -90,7 +90,7 @@ chrome.runtime.onMessage.addListener((m,sender,reply)=>{
  if(['sound','silence'].includes(m.type))return;
  if(m.type==='status'){Promise.all([active(),settings()]).then(([a,s])=>reply({active:a&&s.enabled}));return true;}
  queue=queue.then(async()=>{
-  if(m.type==='activate'){await chrome.storage.session.set({activated:true});const s=await settings();await chrome.storage.local.set({settings:{...s,enabled:true}});await bootstrap();await tick();}
+  if(m.type==='activate'){if(!await active()){await chrome.storage.session.set({activated:true});const s=await settings();await chrome.storage.local.set({settings:{...s,enabled:true}});await bootstrap();await tick();}}
   if(m.type==='saveClasses'){const rows=ClassSchedule.validate(m.rows);await chrome.storage.local.set({classSchedule:rows,classEnabled:Boolean(m.enabled)});await planClasses();}
   if(m.type==='report')await report(m,sender);
   if(m.type==='save'){const old=await settings();const s={...old,...m.settings};s.interval=Math.max(30,Number(s.interval)||30);s.courses=[...new Set(s.courses.filter(id=>/^\d+$/.test(id)))];await chrome.storage.local.set({settings:s});await chrome.alarms.clear('poll');await bootstrap();if(s.enabled){if(!s.sound)await audio(false);await tick();}else await acknowledge();}

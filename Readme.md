@@ -8,3 +8,8 @@
 Python 版：pip install -r requirements-lock.txt。将示例配置复制到 data/signin-notifications.json 并填写自己的推送参数。需自行准备 browser/chrome-win64/chrome.exe 与 browser/chromedriver-win64/chromedriver.exe（匹配版本），按原说明运行。登录由使用者手动完成。数据和登录状态保存在被 Git 忽略的 data/ 与 profiles/。
 
 不会自动签到；需要浏览器运行且电脑不休眠，手机推送取决于服务权限与送达情况。
+
+
+## 原仓库与来源
+
+本仓库基于 [IcekyPrime/SJTU_SignIn_Monitor](https://github.com/IcekyPrime/SJTU_SignIn_Monitor)，保留原项目提交历史。本账号提供本地部署改进及 Edge 扩展；原作者与本地修改的来源分别注明，使用时遵守上游许可及平台规则。

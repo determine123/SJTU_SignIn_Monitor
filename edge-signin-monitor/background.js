@@ -92,6 +92,12 @@ chrome.runtime.onMessage.addListener((m,sender,reply)=>{
  if(m.type==='status'){Promise.all([active(),settings()]).then(([a,s])=>reply({active:a&&s.enabled}));return true;}
  queue=queue.then(async()=>{
   if(m.type==='activate'){if(!await active()){await chrome.storage.session.set({activated:true});const s=await settings();await chrome.storage.local.set({settings:{...s,enabled:true}});await bootstrap();await tick();}}
+  if(m.type==='removeClass'){
+   const {classSchedule=[]}=await chrome.storage.local.get('classSchedule');
+   if(!Number.isInteger(m.index)||m.index<0||m.index>=classSchedule.length||JSON.stringify(classSchedule[m.index])!==JSON.stringify(m.row))throw Error('课表已更改，请重新打开扩展后再移除');
+   await chrome.storage.local.set({classSchedule:classSchedule.filter((_,i)=>i!==m.index)});
+   await planClasses();
+  }
   if(m.type==='saveClasses'){const rows=ClassSchedule.validate(m.rows);await chrome.storage.local.set({classSchedule:rows,classEnabled:Boolean(m.enabled)});await planClasses();}
   if(m.type==='report')await report(m,sender);
   if(m.type==='save'){const old=await settings();const s={...old,...m.settings};s.interval=Math.max(30,Number(s.interval)||30);s.courses=[...new Set(s.courses.filter(id=>/^\d+$/.test(id)))];await chrome.storage.local.set({settings:s});await chrome.alarms.clear('poll');await bootstrap();if(s.enabled){if(!s.sound)await audio(false);await tick();}else await acknowledge();}

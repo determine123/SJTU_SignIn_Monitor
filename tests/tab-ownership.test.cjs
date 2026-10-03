@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');const {boot}=require('./mock.cjs');const folder=path.resolve(__dirname,'../edge-signin-monitor');
+test('a reused tab is never navigated away from another site',async()=>{const h=await boot(folder,{settings:{courses:['123']},states:{123:{tabId:7}}});h.tabs.push({id:7,url:'https://example.org/work',status:'complete'});await h.message({type:'activate'});assert.equal(h.tabs[0].url,'https://example.org/work');assert.equal(h.tabs.length,2);assert.equal(h.db.states['123'].tabId,101);});

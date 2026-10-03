@@ -48,7 +48,7 @@ async function report(m,sender){
 async function tick(){
  const s=await settings();if(!s.enabled||!await active())return;
  const {states={}}=await chrome.storage.local.get('states');const tabs=await chrome.tabs.query({});
- for(const id of s.courses){const state=states[id]||{};let tab=tabs.find(t=>t.id===state.tabId)||tabs.find(t=>(t.url||'').split('?')[0]===urlFor(id));
+ for(const id of s.courses){const state=states[id]||{};let tab=tabs.find(t=>(t.url||'').split('?')[0]===urlFor(id))||tabs.find(t=>t.id===state.tabId&&/jaccount|\/login/i.test(t.url||''));
   if(!tab&&!s.autoOpen){state.status='页面关闭，请手动打开课程';state.tabId=null;states[id]=state;continue;}
   if(!tab){tab=await chrome.tabs.create({url:urlFor(id),active:false});state.status='等待页面';state.tabId=tab.id;state.opened=Date.now();}
   else if(tab.status==='complete'&&Date.now()-(state.opened||0)>15000){

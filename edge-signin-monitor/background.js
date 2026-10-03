@@ -77,8 +77,8 @@ async function classReminder(name){
  classSent[event.key]=Date.now();for(const k of Object.keys(classSent))if(classSent[k]<Date.now()-90*86400000)delete classSent[k];await chrome.storage.local.set({classSent});
  const r=event.row;const s=await settings();const title='上课提醒：'+r.name;const minutes=Math.max(1,Math.ceil((event.classAt-Date.now())/60000));const message=event.date+' '+r.time+' 上课（约 '+minutes+' 分钟后）\n'+(r.location||'');
  const key='lesson:'+event.key;const {pending={}}=await chrome.storage.local.get('pending');pending[key]={course:r.courseId,message};await chrome.storage.local.set({pending});
- await chrome.notifications.create(key,{type:'basic',iconUrl:'icon.png',title,message,requireInteraction:true,buttons:[{title:'已收到，停止提醒'},{title:'打开课程'}]});
- if(s.sound)await audio(true);await append({kind:'class',course:r.courseId,message:title+' · '+message});await mobile(title,message,s);await planClasses();
+ try{await chrome.notifications.create(key,{type:'basic',iconUrl:'icon.png',title,message,requireInteraction:true,buttons:[{title:'已收到，停止提醒'},{title:'打开课程'}]});}catch{await append({kind:'error',message:'上课提醒桌面通知失败'});}
+ if(s.sound)try{await audio(true);}catch{await append({kind:'error',message:'上课提醒声音播放失败'});}await append({kind:'class',course:r.courseId,message:title+' · '+message});await mobile(title,message,s);await planClasses();
 }
 async function bootstrap(){const s=await settings();if(s.enabled&&await active()){if(!await chrome.alarms.get('poll'))await chrome.alarms.create('poll',{periodInMinutes:Math.max(30,s.interval)/60});}else await chrome.alarms.clear('poll');await planClasses();}
 chrome.alarms.onAlarm.addListener(a=>{queue=queue.then(async()=>{if(a.name==='poll')await tick();else if(a.name==='class-plan')await planClasses();else if(a.name.startsWith('class:'))await classReminder(a.name);}).catch(e=>append({kind:'error',message:'检查失败：'+e.name}));});

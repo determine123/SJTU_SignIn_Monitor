@@ -1,0 +1,8 @@
+(function(root){
+ const dayMs=86400000;
+ const dateOf=t=>new Date(t+8*3600000).toISOString().slice(0,10);
+ function validDate(s){return /^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s+'T00:00:00+08:00'))&&dateOf(Date.parse(s+'T00:00:00+08:00'))===s;}
+ function validate(rows){if(!Array.isArray(rows))throw Error('课表必须是数组');return rows.map((r,i)=>{if(!r.name?.trim()||!Array.isArray(r.days)||!r.days.length||r.days.some(d=>!Number.isInteger(d)||d<1||d>7)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time||'')||!validDate(r.from)||!validDate(r.to)||r.from>r.to)throw Error('第'+(i+1)+'条课程名称、星期、时间或起止日期不正确');const weeks=r.weeks||'all';if(!['all','odd','even'].includes(weeks))throw Error('周次应为 all、odd 或 even');if(weeks!=='all'&&(!validDate(r.anchor)||new Date(r.anchor+'T00:00:00+08:00').getUTCDay()!==0))throw Error('单双周需 anchor 为第一周周一日期');return {...r,name:r.name.trim(),weeks};});}
+ function next(r,now=Date.now(),sent={}){const start=Date.parse(dateOf(now)+'T00:00:00+08:00');for(let offset=0;offset<15;offset++){const d=new Date(start+offset*dayMs+8*3600000);const date=d.toISOString().slice(0,10);const weekday=d.getUTCDay()||7;if(date<r.from||date>r.to||!r.days.includes(weekday))continue;if(r.weeks!=='all'){const week=Math.floor((Date.parse(date+'T00:00:00+08:00')-Date.parse(r.anchor+'T00:00:00+08:00'))/(7*dayMs))+1;if(week<1||(week%2===1)!==(r.weeks==='odd'))continue;}const classAt=Date.parse(date+'T'+r.time+':00+08:00');const key=[r.name,r.courseId||'',date,r.time].join('|');if(classAt<=now||sent[key])continue;return {key,classAt,when:Math.max(now+1000,classAt-30*60000),date};}return null;}
+ root.ClassSchedule={validate,next,dateOf};
+})(globalThis);

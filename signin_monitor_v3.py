@@ -1,7 +1,10 @@
 import time
+import json
+from notifications import Alerts
 import re
 import platform
 import sys
+from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -29,15 +32,29 @@ class SigninMonitorV3:
             self.target_url = target_url
         else:
             # 默认URL，保持向后兼容
-            self.target_url = "https://oc.sjtu.edu.cn/courses/..."
+            self.target_url = "https://oc.sjtu.edu.cn/courses/95353/external_tools/6650"
         
+        self.alerts = Alerts(self.target_url)
+        self.state_file = Path(__file__).resolve().parent / "data" / f"signin-state-{self.alerts.course}.json"
+        try:
+            self.previous_record = json.loads(self.state_file.read_text(encoding="utf-8"))
+            self.previous_signin_num = self.previous_record.get("num")
+        except (OSError, ValueError, AttributeError):
+            self.previous_record = None
+        self.current_record = None
+
         print(f"🎯 目标URL: {self.target_url}")
         print(f"⏰ 检查频率: {self.check_interval}秒")
         
     def setup_driver(self):
         """设置Chrome驱动"""
         chrome_options = Options()
+        chrome_options.binary_location = str(Path(__file__).parent / "browser" / "chrome-win64" / "chrome.exe")
         
+        profile_dir = Path(__file__).parent / "profiles" / self.alerts.course
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        chrome_options.add_argument(f"--user-data-dir={profile_dir.resolve()}")
+
         # 禁用自动化特征检测
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -47,7 +64,7 @@ class SigninMonitorV3:
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         try:
-            service = Service(ChromeDriverManager().install())
+            service = Service(str(Path(__file__).parent / "browser" / "chromedriver-win64" / "chromedriver.exe"))
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             print("✅ 浏览器驱动初始化成功")
             return True
@@ -55,29 +72,43 @@ class SigninMonitorV3:
             print(f"❌ 驱动初始化失败: {e}")
             return False
     
+    def login_is_ready(self):
+        """Require the actual course tool page and a signed-in Canvas control."""
+        self.driver.switch_to.default_content()
+        from urllib.parse import urlsplit
+        actual = urlsplit(self.driver.current_url)
+        target = urlsplit(self.target_url)
+        if actual.hostname != target.hostname or actual.path.rstrip('/') != target.path.rstrip('/'):
+            return False
+        controls = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "#global_nav_profile_link, a[href='/logout'], form[action='/logout']"
+        )
+        return bool(controls)
+
     def wait_for_manual_login(self):
-        """等待用户手动登录"""
-        print("\n" + "="*60)
-        print("手动登录指引")
-        print("="*60)
-        print("1. 浏览器将打开上海交通大学Canvas页面")
-        print("2. 请完成JAccount登录（用户名、密码、验证码）")
-        print("3. 等待页面完全加载，直到看到签到界面")
-        print("4. 最后，回到此命令行窗口按回车键继续")
-        print("="*60 + "\n")
-        
-        # 使用配置的目标URL
-        print(f"🌐 正在访问: {self.target_url}")
+        """Reuse the saved session, or wait for manual authentication."""
+        print("正在打开课程页面并检查保存的登录状态……")
         self.driver.get(self.target_url)
-        
-        # 等待页面初始加载
-        time.sleep(5)
-        print("⏳ 页面已加载，请开始登录...")
-        
-        # 等待用户登录完成
-        input("\n✅ 登录完成后，请按回车键继续程序...")
-        return True
-    
+        print("如出现登录页面，请在浏览器中登录。确认登录有效后将自动开始，无需按回车。")
+        while True:
+            try:
+                if self.login_is_ready():
+                    print("登录状态有效，自动开始监控。")
+                    return True
+                # After an authentication redirect, Canvas can land on the home page.
+                from urllib.parse import urlsplit
+                current = urlsplit(self.driver.current_url)
+                target = urlsplit(self.target_url)
+                if current.hostname == target.hostname and current.path.rstrip('/') != target.path.rstrip('/'):
+                    controls = self.driver.find_elements(By.CSS_SELECTOR, "#global_nav_profile_link")
+                    if controls:
+                        self.driver.get(self.target_url)
+            except Exception as exc:
+                if "invalid session id" in str(exc).lower() or "no such window" in str(exc).lower():
+                    raise
+            time.sleep(3)
+
     def find_and_switch_to_signin_iframe(self):
         """查找并切换到签到iframe"""
         print("\n🔍 查找签到iframe...")
@@ -127,116 +158,19 @@ class SigninMonitorV3:
         return False
     
     def get_signin_number_from_first_rows(self):
-        """检查所有表格的第一行，若为文字则跳过"""
-        print("\n📊 检查所有表格的第一行...")
-        
-        try:
-            # 查找所有表格
-            tables = self.driver.find_elements(By.TAG_NAME, "table")
-            print(f"找到 {len(tables)} 个表格")
-            
-            if not tables:
-                print("⚠️  未找到任何表格，尝试其他查找方式...")
-                return self.fallback_find_signin_number()
-            
-            # 遍历所有表格，检查第一行
-            for table_idx, table in enumerate(tables):
-                print(f"\n检查表格 {table_idx+1}:")
-                
-                # 获取表格的所有行
-                rows = table.find_elements(By.TAG_NAME, "tr")
-                print(f"  此表格有 {len(rows)} 行")
-                
-                if len(rows) == 0:
-                    print("  表格为空，跳过")
-                    continue
-                
-                # 检查第一行
-                first_row = rows[0]
-                first_row_text = first_row.text.strip()
-                print(f"  第一行文本: '{first_row_text}'")
-                
-                # 判断第一行是否为文字（不含数字或纯数字的情况）
-                if not first_row_text:
-                    print("  第一行为空，跳过此表格")
-                    continue
-                
-                # 检查是否包含数字
-                numbers_in_first_row = re.findall(r'\d+', first_row_text)
-                
-                if numbers_in_first_row:
-                    # 第一行包含数字，可能是签到号
-                    print(f"  ✅ 第一行包含数字: {numbers_in_first_row}")
-                    
-                    # 判断是否为纯数字（可能是签到号）
-                    if first_row_text.isdigit():
-                        print(f"  🎯 第一行为纯数字，可能是签到号: {first_row_text}")
-                        return first_row_text
-                    else:
-                        # 第一行包含数字但不是纯数字，可能是"签到号: 7"这样的格式
-                        print(f"  🔍 第一行包含数字但不是纯数字")
-                        # 尝试提取第一个数字
-                        return numbers_in_first_row[0]
-                else:
-                    # 第一行是纯文字，跳过此表格
-                    print(f"  ⏭️  第一行为纯文字，跳过此表格")
-                    continue
-            
-            # 如果所有表格的第一行都是文字，尝试查找其他元素
-            print("\n⚠️  所有表格的第一行都是文字，尝试其他查找方式...")
-            return self.fallback_find_signin_number()
-            
-        except Exception as e:
-            print(f"❌ 检查表格时出错: {e}")
-            return self.fallback_find_signin_number()
-    
+        """Use the shared labelled-column parser; reject unlabelled numbers."""
+        parser = Path(__file__).resolve().parent / "edge-signin-monitor" / "parser.js"
+        source = parser.read_text(encoding="utf-8-sig")
+        self.current_record = self.driver.execute_script(source + ";return SigninParser.parse(document);")
+        if self.current_record:
+            print(f"签到记录: {self.current_record['num']} · {self.current_record.get('status', '')}")
+            return self.current_record["num"]
+        print("未识别到带签到号表头的记录，保留上次状态；请检查页面。")
+        return None
+
     def fallback_find_signin_number(self):
-        """备用查找方法"""
-        print("\n🔄 使用备用方法查找签到号...")
-        
-        try:
-            # 方法1: 查找所有包含数字的元素
-            all_elements = self.driver.find_elements(By.XPATH, "//*[text()]")
-            
-            candidate_numbers = []
-            for elem in all_elements:
-                elem_text = elem.text.strip()
-                if elem_text and len(elem_text) <= 5:  # 签到号通常不会太长
-                    # 检查是否为纯数字
-                    if elem_text.isdigit():
-                        candidate_numbers.append(elem_text)
-            
-            if candidate_numbers:
-                print(f"📋 找到 {len(candidate_numbers)} 个候选数字")
-                # 返回第一个候选数字
-                return candidate_numbers[0]
-            
-            # 方法2: 查找具有特定class的元素
-            special_selectors = [
-                ".current-row .cell",
-                ".el-table__row .cell",
-                "[class*='current']",
-                "[class*='sign']"
-            ]
-            
-            for selector in special_selectors:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for elem in elements:
-                        elem_text = elem.text.strip()
-                        if elem_text and elem_text.isdigit():
-                            print(f"✅ 通过选择器 '{selector}' 找到数字: {elem_text}")
-                            return elem_text
-                except:
-                    continue
-            
-            print("❌ 备用方法也未找到签到号")
-            return None
-            
-        except Exception as e:
-            print(f"❌ 备用查找方法出错: {e}")
-            return None
-    
+        return self.get_signin_number_from_first_rows()
+
     def check_signin_number(self):
         """检查签到号"""
         self.attempt_count += 1
@@ -245,8 +179,11 @@ class SigninMonitorV3:
         try:
             # 刷新页面获取最新数据
             print("🔄 刷新页面...")
+            self.driver.switch_to.default_content()
             self.driver.refresh()
             time.sleep(5)
+            if not self.login_is_ready():
+                self.wait_for_manual_login()
             
             # 查找并切换到签到iframe
             if self.find_and_switch_to_signin_iframe():
@@ -254,18 +191,22 @@ class SigninMonitorV3:
                 current_num = self.get_signin_number_from_first_rows()
                 
                 if current_num:
-                    if self.previous_signin_num is None:
-                        print(f"✅ 初始签到号: {current_num}")
-                        self.previous_signin_num = current_num
-                    elif current_num != self.previous_signin_num:
-                        print(f"🚨 签到号已变化!")
-                        print(f"   从 {self.previous_signin_num} 变为 {current_num}")
-                        self.alert_sound()
-                        self.previous_signin_num = current_num
+                    record = self.current_record
+                    previous = self.previous_record
+                    changed = previous is not None and previous.get("key") != record["key"]
+                    became_active = previous is not None and not previous.get("active") and record.get("active")
+                    should_alert = not record.get("ended") and ((previous is None and record.get("active")) or changed or became_active)
+                    # Persist before alerting, avoiding duplicates after process restart.
+                    self.state_file.parent.mkdir(parents=True, exist_ok=True)
+                    self.state_file.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+                    self.previous_record = record
+                    self.previous_signin_num = current_num
+                    if should_alert:
+                        self.alerts.notify(previous.get("num", "首次发现") if previous else "首次发现", current_num)
                     else:
-                        print(f"📊 签到号未变: {current_num}")
+                        print("已保存签到基准，没有新提醒。")
                 else:
-                    print("⚠️  未找到签到号")
+                    print("⚠️ 未找到有效签到记录")
             else:
                 print("❌ 无法访问签到页面")
                 
@@ -347,11 +288,14 @@ class SigninMonitorV3:
             if self.wait_for_manual_login():
                 # 开始监控
                 self.run_monitoring()
+        except KeyboardInterrupt:
+            print("监控已停止。")
         except Exception as e:
             print(f"❌ 程序运行出错: {e}")
             import traceback
             traceback.print_exc()
         finally:
+            self.alerts.close()
             if self.driver:
                 print("\n🧹 正在清理资源...")
                 self.driver.quit()
@@ -370,13 +314,14 @@ def analyze_table_structure(target_url=None, check_interval=15):
     - check_interval: 检查频率（秒）
     """
     chrome_options = Options()
+    chrome_options.binary_location = str(Path(__file__).parent / "browser" / "chrome-win64" / "chrome.exe")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     
     # 使用提供的URL或默认值
     if not target_url:
-        target_url = "https://oc.sjtu.edu.cn/courses/..."
+        target_url = "https://oc.sjtu.edu.cn/courses/95353/external_tools/6650"
     
-    service = Service(ChromeDriverManager().install())
+    service = Service(str(Path(__file__).parent / "browser" / "chromedriver-win64" / "chromedriver.exe"))
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
@@ -447,15 +392,15 @@ def print_usage():
     print("="*70)
     print("\n使用方法:")
     print("1. 正常监控模式:")
-    print("   python signin_monitor_v3_1.py [目标URL] [检查间隔]")
-    print("   示例: python signin_monitor_v3_1.py https://oc.sjtu.edu.cn/courses/...")
+    print("   python signin_monitor_v3.py [目标URL] [检查间隔]")
+    print("   示例: python signin_monitor_v3.py https://oc.sjtu.edu.cn/courses/95353/external_tools/6650")
     print()
     print("2. 调试分析模式:")
-    print("   python signin_monitor_v3_1.py --analyze [目标URL]")
-    print("   示例: python signin_monitor_v3_1.py --analyze https://oc.sjtu.edu.cn/courses/...")
+    print("   python signin_monitor_v3.py --analyze [目标URL]")
+    print("   示例: python signin_monitor_v3.py --analyze https://oc.sjtu.edu.cn/courses/95353/external_tools/6650")
     print()
     print("3. 默认模式（使用默认URL和15秒间隔）:")
-    print("   python signin_monitor_v3_1.py")
+    print("   python signin_monitor_v3.py")
     print("="*70)
 
 if __name__ == "__main__":

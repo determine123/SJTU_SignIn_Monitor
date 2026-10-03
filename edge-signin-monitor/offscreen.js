@@ -1,0 +1,1 @@
+chrome.runtime.onMessage.addListener((m,sender,reply)=>{const a=document.getElementById('sound');if(m.type==='sound'){a.play().then(()=>reply({ok:true})).catch(()=>reply({ok:false}));return true;}if(m.type==='silence'){a.pause();a.currentTime=0;reply({ok:true});}});

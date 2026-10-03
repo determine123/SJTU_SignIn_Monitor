@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "SJTU Canvas 签到提醒",
+  "version": "1.1.0",
+  "description": "点击启用的多课程签到监控与课前30分钟提醒。",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://*.sjtu.edu.cn/*"
+  ],
+  "optional_host_permissions": [
+    "https://www.pushplus.plus/*",
+    "https://sctapi.ftqq.com/*",
+    "https://api.telegram.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "icons": {
+    "128": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.sjtu.edu.cn/*"
+      ],
+      "all_frames": true,
+      "match_about_blank": true,
+      "js": [
+        "parser.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

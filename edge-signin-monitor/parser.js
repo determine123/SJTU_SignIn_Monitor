@@ -1,0 +1,27 @@
+/* Read labelled attendance columns, never arbitrary page numbers. */
+(function(root){
+ const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
+ function parse(doc){
+  const tables=[...doc.querySelectorAll('table')];let shared=null;const records=[];
+  for(const table of tables){
+   const headings=[...table.querySelectorAll('thead th, thead td')].map(e=>clean(e.textContent));
+   const first=table.querySelector('tr');
+   const labels=headings.length?headings:[...(first?.querySelectorAll('th,td')||[])].map(e=>clean(e.textContent));
+   let map=labels.findIndex(s=>/签到号|签到编号/.test(s));
+   const local=map>=0?{num:map,status:labels.findIndex(s=>/状态/.test(s)),time:labels.findIndex(s=>/创建时间|开始时间|发起时间/.test(s))}:null;
+   if(local)shared=local;
+   const columns=local||shared;if(!columns)continue;
+   for(const row of table.querySelectorAll('tbody tr, tr')){
+    const cells=[...row.querySelectorAll(':scope > td')].map(e=>clean(e.textContent));
+    const num=cells[columns.num];if(!num||!/^\d{1,12}$/.test(num))continue;
+    const status=cells[columns.status]||'';const created=cells[columns.time]||'';
+    // El-table fixed-column duplicates are deduplicated below.
+    records.push({num,status,created,key:num+'|'+created,active:/未签到|签到中|进行中|待签到/.test(status),ended:/已结束|已关闭|已过期/.test(status)});
+   }
+  }
+  const unique=[...new Map(records.map(r=>[r.key,r])).values()];
+  unique.sort((a,b)=>{const ta=Date.parse(a.created.replace(/-/g,'/')),tb=Date.parse(b.created.replace(/-/g,'/'));return Number.isFinite(ta)&&Number.isFinite(tb)?tb-ta:0});
+  return unique[0]||null;
+ }
+ root.SigninParser={parse};if(typeof module!=='undefined')module.exports={parse};
+})(globalThis);

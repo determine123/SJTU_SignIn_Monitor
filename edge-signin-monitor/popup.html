@@ -1,0 +1,11 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>SJTU 签到提醒</title><link rel="stylesheet" href="style.css"><body>
+<header><h1>SJTU 签到提醒</h1><p>点击图标后启用 · 重启 Edge 后需再次点击</p></header>
+<label class="switch"><input id="enabled" type="checkbox">启用签到监控（本次 Edge 会话）</label>
+<label><input id="autoOpen" type="checkbox" checked>自动打开课程页面（关闭后仅监控手动打开的页面）</label>
+<section><h2>课程与检测</h2><label>课程编号，每行一个<textarea id="courses" rows="3"></textarea></label><label>刷新间隔，秒（至少 30）<input id="interval" type="number" min="30" value="30"></label>
+<label><input id="firstActive" type="checkbox" checked>首次发现“未签到／进行中”也提醒</label><label><input id="sound" type="checkbox" checked>循环声音，直到确认</label></section>
+<section><h2>上课前 30 分钟提醒</h2><label><input id="classEnabled" type="checkbox" checked>启用上课提醒</label><p>请在高级课表编辑中填写自己的课程；时间按北京时间，调课需单独编辑。</p><div id="classRows"></div><button id="saveClasses">保存课表</button><p id="classResult" role="status"></p><details><summary>高级课表编辑（单双周／增加课程）</summary><p>days：周一 1 至周日 7；weeks：all / odd / even；单双周需 anchor 填第一周周一日期。</p><textarea id="classJson" rows="8"></textarea><button id="importClasses">应用高级课表</button></details></section>
+<section><h2>手机推送（可选）</h2><p>仅向填写密钥的服务发送签到变化和上课提醒；不发送账号密码。</p><label>PushPlus Token<input id="pushplus_token" type="password" autocomplete="off"></label><label>Server酱 SendKey<input id="serverchan_sendkey" type="password" autocomplete="off"></label><label>Telegram Bot Token<input id="telegram_bot_token" type="password" autocomplete="off"></label><label>Telegram Chat ID<input id="telegram_chat_id" autocomplete="off"></label></section>
+<div class="buttons"><button id="save">保存并应用</button><button id="test">测试提醒</button><button id="ack">已收到／停止声音</button></div><p id="result" role="status"></p>
+<section><h2>课程状态</h2><div id="states"></div></section><section><h2>最近记录</h2><button id="export">导出日志</button><div id="logs"></div></section>
+<footer>保持 Edge 运行、课程标签页打开。电脑休眠期间无法检测。首次识别为已签到或状态未知时仅建立基准。检测异常请打开课程确认。</footer><script src="popup.js"></script></body></html>

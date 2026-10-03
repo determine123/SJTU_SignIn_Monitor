@@ -1,0 +1,13 @@
+
+.venv/
+__pycache__/
+profiles/
+browser/
+data/
+*.log
+*.jsonl
+node_modules/
+.env
+.env.*
+signin-notifications.json
+site/

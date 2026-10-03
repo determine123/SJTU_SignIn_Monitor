@@ -10,7 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from browser_setup import create_driver
 from selenium.webdriver.chrome.options import Options
 
 class SigninMonitorV3:
@@ -49,7 +49,6 @@ class SigninMonitorV3:
     def setup_driver(self):
         """设置Chrome驱动"""
         chrome_options = Options()
-        chrome_options.binary_location = str(Path(__file__).parent / "browser" / "chrome-win64" / "chrome.exe")
         
         profile_dir = Path(__file__).parent / "profiles" / self.alerts.course
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -64,8 +63,7 @@ class SigninMonitorV3:
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         try:
-            service = Service(str(Path(__file__).parent / "browser" / "chromedriver-win64" / "chromedriver.exe"))
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            self.driver = create_driver(chrome_options)
             print("✅ 浏览器驱动初始化成功")
             return True
         except Exception as e:
@@ -314,15 +312,13 @@ def analyze_table_structure(target_url=None, check_interval=15):
     - check_interval: 检查频率（秒）
     """
     chrome_options = Options()
-    chrome_options.binary_location = str(Path(__file__).parent / "browser" / "chrome-win64" / "chrome.exe")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     
     # 使用提供的URL或默认值
     if not target_url:
         target_url = "https://oc.sjtu.edu.cn/courses/95353/external_tools/6650"
     
-    service = Service(str(Path(__file__).parent / "browser" / "chromedriver-win64" / "chromedriver.exe"))
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver = create_driver(chrome_options)
     
     try:
         print(f"🎯 分析目标URL: {target_url}")

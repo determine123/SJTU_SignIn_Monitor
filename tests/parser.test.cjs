@@ -3,11 +3,11 @@ const {parse}=require('../edge-signin-monitor/parser.js');
 
 // Small DOM doubles keep parsing unit tests independent of a browser install.
 const cells=values=>values.map(textContent=>({textContent}));
-function table(headers,rows,owner=null){
+function table(headers,rows,owner=null,fixed=null){
  const headings=cells(headers);
  const body=rows.map(values=>({querySelectorAll:selector=>selector===':scope > td'?cells(values):[]}));
  return {
-  closest:()=>owner,
+  closest:selector=>selector==='.el-table__fixed, .el-table__fixed-right'?fixed:owner,
   querySelector:()=>headers.length?{querySelectorAll:()=>headings}:body[0],
   querySelectorAll:selector=>selector==='thead th, thead td'?headings:selector==='tbody tr, tr'?body:[],
  };
@@ -34,4 +34,22 @@ test('independent attendance widgets retain their own column order',()=>{
  const doc=documentOf(table(labels,[],first),table(['状态','创建时间','签到编号'],[],second),table([], [attendance],first),table([], [['待签到','2026-10-04 10:00:00','5678']],second));
  const record=parse(doc);
  assert.equal(record.num,'5678');assert.equal(record.active,true);
+});
+
+test('a partial fixed-column header cannot overwrite the main table mapping',()=>{
+ const owner={},fixed={};
+ const doc=documentOf(table(labels,[],owner),table(['签到号'],[],owner,fixed),table([], [attendance],owner),table([], [['1234']],owner,fixed));
+ const record=parse(doc);
+ assert.equal(record.num,'1234');
+ assert.equal(record.created,'2026-10-04 08:00:00');
+ assert.equal(record.status,'签到中');
+ assert.equal(record.active,true);
+});
+
+test('a fixed-column copy appearing first cannot hide the dated main record',()=>{
+ const owner={},fixed={};
+ const doc=documentOf(table(['签到号'],[],owner,fixed),table([], [['1234']],owner,fixed),table(labels,[],owner),table([], [attendance],owner));
+ const record=parse(doc);
+ assert.equal(record.created,'2026-10-04 08:00:00');
+ assert.equal(record.active,true);
 });

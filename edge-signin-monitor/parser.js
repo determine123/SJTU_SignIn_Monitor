@@ -2,15 +2,21 @@
 (function(root){
  const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
  function parse(doc){
-  const tables=[...doc.querySelectorAll('table')];let shared=null;const records=[];
+  const tables=[...doc.querySelectorAll('table')];const shared=new Map();const records=[];
+  const columnsByTable=new Map();
   for(const table of tables){
    const headings=[...table.querySelectorAll('thead th, thead td')].map(e=>clean(e.textContent));
    const first=table.querySelector('tr');
    const labels=headings.length?headings:[...(first?.querySelectorAll('th,td')||[])].map(e=>clean(e.textContent));
    let map=labels.findIndex(s=>/签到号|签到编号/.test(s));
    const local=map>=0?{num:map,status:labels.findIndex(s=>/状态/.test(s)),time:labels.findIndex(s=>/创建时间|开始时间|发起时间/.test(s))}:null;
-   if(local)shared=local;
-   const columns=local||shared;if(!columns)continue;
+   const owner=table.closest('.el-table');
+   if(local){columnsByTable.set(table,local);if(owner)shared.set(owner,local);}
+  }
+  for(const table of tables){
+   // Element UI splits header/body tables, but unrelated widgets must not
+   // inherit those labels. Native tables always need their own labels.
+   const columns=columnsByTable.get(table)||shared.get(table.closest('.el-table'));if(!columns)continue;
    for(const row of table.querySelectorAll('tbody tr, tr')){
     const cells=[...row.querySelectorAll(':scope > td')].map(e=>clean(e.textContent));
     const num=cells[columns.num];if(!num||!/^\d{1,12}$/.test(num))continue;

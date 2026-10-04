@@ -29,7 +29,7 @@ async function alertCourse(id,record,s,test=false){
  if(s.sound){try{await audio(true);}catch{await append({kind:'error',message:'声音播放失败'});}}
  await append({kind:test?'test':'change',course:id,message});await mobile(title,message,s);
 }
-async function acknowledge(id){const {pending={}}=await chrome.storage.local.get('pending');if(id)delete pending[id];else for(const key of Object.keys(pending))delete pending[key];await chrome.storage.local.set({pending});if(!Object.keys(pending).length)await audio(false);if(id)await chrome.notifications.clear(id);else for(const n of Object.keys(await chrome.notifications.getAll()))await chrome.notifications.clear(n);}
+async function acknowledge(id){const {pending={}}=await chrome.storage.local.get('pending');if(id)delete pending[id];else for(const key of Object.keys(pending))delete pending[key];await chrome.storage.local.set({pending});if(!Object.keys(pending).length)try{await audio(false);}catch{await append({kind:'error',message:'声音停止失败，请检查扩展音频页面'});}if(id)await chrome.notifications.clear(id);else for(const n of Object.keys(await chrome.notifications.getAll()))await chrome.notifications.clear(n);}
 async function report(m,sender){
  const s=await settings();if(!s.enabled||!await active()||!sender.tab)return;
  const {states={}}=await chrome.storage.local.get('states');

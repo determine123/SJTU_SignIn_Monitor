@@ -16,6 +16,18 @@ const documentOf=(...tables)=>({querySelectorAll:()=>tables});
 const labels=['签到号','状态','创建时间'];
 const attendance=['1234','签到中','2026-10-04 08:00:00'];
 
+for(const partialFirst of [true,false])test(`a duplicate without status cannot erase an active record (partial first: ${partialFirst})`,()=>{
+ const complete=table(labels,[attendance]);
+ const partial=table(['签到号','创建时间'],[['1234',attendance[2]]]);
+ const record=parse(documentOf(...(partialFirst?[partial,complete]:[complete,partial])));
+ assert.equal(record.status,'签到中');assert.equal(record.active,true);
+});
+
+test('an ended record remains ended when a partial duplicate follows it',()=>{
+ const record=parse(documentOf(table(labels,[['1234','已结束',attendance[2]]]),table(['签到号','创建时间'],[['1234',attendance[2]]])));
+ assert.equal(record.ended,true);assert.equal(record.active,false);
+});
+
 test('an unrelated table cannot inherit attendance columns',()=>{
  const doc=documentOf(table(labels,[attendance]),table(['学号','备注','时间'],[['9999','待签到','2026-10-04 09:00:00']]));
  assert.equal(parse(doc).num,'1234');

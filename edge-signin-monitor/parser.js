@@ -26,7 +26,14 @@
     records.push({num,status,created,key:num+'|'+created,active:/未签到|签到中|进行中|待签到/.test(status),ended:/已结束|已关闭|已过期/.test(status)});
    }
   }
-  const unique=[...new Map(records.map(r=>[r.key,r])).values()];
+  const byKey=new Map();
+  for(const record of records){
+   const previous=byKey.get(record.key);
+   // A fixed-column copy may include the number and time but omit status.
+   // Do not let that partial duplicate erase a complete attendance record.
+   if(!previous||record.status||!previous.status)byKey.set(record.key,record);
+  }
+  const unique=[...byKey.values()];
   unique.sort((a,b)=>{const ta=Date.parse(a.created.replace(/-/g,'/')),tb=Date.parse(b.created.replace(/-/g,'/'));const validA=Number.isFinite(ta),validB=Number.isFinite(tb);return validA&&validB?tb-ta:validA?-1:validB?1:0;});
   return unique[0]||null;
  }

@@ -5,7 +5,7 @@ const urlFor=id=>`https://oc.sjtu.edu.cn/courses/${id}/external_tools/6650`;
 async function settings(){return {...defaults,...(await chrome.storage.local.get('settings')).settings}}
 async function audio(play){
  if(play){if(!await chrome.offscreen.hasDocument()){audioCreating ||= chrome.offscreen.createDocument({url:'offscreen.html',reasons:['AUDIO_PLAYBACK'],justification:'Play attendance alert until acknowledged'}).finally(()=>audioCreating=null);await audioCreating;}}
- if(await chrome.offscreen.hasDocument())await chrome.runtime.sendMessage({type:play?'sound':'silence'});
+ if(await chrome.offscreen.hasDocument()){const reply=await chrome.runtime.sendMessage({type:play?'sound':'silence'});if(!reply?.ok)throw Error('音频页面未确认操作');}
 }
 function append(event){logQueue=logQueue.catch(()=>{}).then(async()=>{const {logs=[]}=await chrome.storage.local.get('logs');logs.unshift({time:Date.now(),...event});await chrome.storage.local.set({logs:logs.slice(0,300)});});return logQueue;}
 async function mobile(title,text,s){

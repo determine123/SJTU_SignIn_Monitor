@@ -13,3 +13,10 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/*.test.cjs
+      - run: python3 -m unittest discover -s tests -p 'test_package.py'
+      - run: python3 tools/package_extension.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          path: dist/*.zip
+          archive: false
+          if-no-files-found: error

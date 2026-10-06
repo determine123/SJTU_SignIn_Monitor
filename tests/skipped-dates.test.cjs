@@ -1,0 +1,5 @@
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+function schedule(){const c=vm.createContext({Date});vm.runInContext(fs.readFileSync(path.join(__dirname,'../edge-signin-monitor/schedule.js'),'utf8'),c);return c.ClassSchedule;}
+const row={name:'停课测试',days:[1],time:'08:00',from:'2026-10-12',to:'2026-11-02'};
+test('a cancelled Monday does not notify and the next lesson keeps its 30-minute reminder',()=>{const S=schedule(),r=S.validate([{...row,skipDates:['2026-10-12','2026-10-12']}])[0];assert.equal(r.skipDates.length,1);const n=S.next(r,Date.parse('2026-10-12T07:00:00+08:00'));assert.equal(n.date,'2026-10-19');assert.equal(n.when,Date.parse('2026-10-19T07:30:00+08:00'));});
+test('omitting exceptions preserves existing lessons; malformed exception dates are rejected',()=>{const S=schedule();assert.equal(S.next(S.validate([row])[0],Date.parse('2026-10-12T07:00:00+08:00')).date,'2026-10-12');for(const skipDates of ['2026-10-12',[null],['2026-02-30']])assert.throws(()=>S.validate([{...row,skipDates}]),/停课日期/);});

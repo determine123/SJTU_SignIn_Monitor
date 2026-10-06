@@ -13,3 +13,7 @@ Python 版：pip install -r requirements-lock.txt。将示例配置复制到 dat
 ## 原仓库与来源
 
 本仓库基于 [IcekyPrime/SJTU_SignIn_Monitor](https://github.com/IcekyPrime/SJTU_SignIn_Monitor)，保留原项目提交历史。本账号提供本地部署改进及 Edge 扩展；原作者与本地修改的来源分别注明，使用时遵守上游许可及平台规则。
+
+### 停课日期
+
+在扩展课表的高级 JSON 导入中，可为某门课程添加 `"skipDates": ["2026-10-12", "2026-10-19"]`，跳过放假或临时取消的课前提醒。日期使用北京时间，保存课表后旧提醒会重新安排；不填此字段时保持原有课表。它只取消指定日期，不自动推算补课，补课请另行添加课程提醒。

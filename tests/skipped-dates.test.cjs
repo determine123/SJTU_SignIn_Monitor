@@ -3,3 +3,13 @@ function schedule(){const c=vm.createContext({Date});vm.runInContext(fs.readFile
 const row={name:'停课测试',days:[1],time:'08:00',from:'2026-10-12',to:'2026-11-02'};
 test('a cancelled Monday does not notify and the next lesson keeps its 30-minute reminder',()=>{const S=schedule(),r=S.validate([{...row,skipDates:['2026-10-12','2026-10-12']}])[0];assert.equal(r.skipDates.length,1);const n=S.next(r,Date.parse('2026-10-12T07:00:00+08:00'));assert.equal(n.date,'2026-10-19');assert.equal(n.when,Date.parse('2026-10-19T07:30:00+08:00'));});
 test('omitting exceptions preserves existing lessons; malformed exception dates are rejected',()=>{const S=schedule();assert.equal(S.next(S.validate([row])[0],Date.parse('2026-10-12T07:00:00+08:00')).date,'2026-10-12');for(const skipDates of ['2026-10-12',[null],['2026-02-30']])assert.throws(()=>S.validate([{...row,skipDates}]),/停课日期/);});
+
+test('several cancelled weeks still plan the next real lesson',()=>{
+ const S=schedule(),r=S.validate([{...row,to:'2026-12-31',skipDates:['2026-10-12','2026-10-19','2026-10-26']}])[0];
+ const n=S.next(r,Date.parse('2026-10-12T07:00:00+08:00'));
+ assert.equal(n.date,'2026-11-02');assert.equal(n.when,Date.parse('2026-11-02T07:30:00+08:00'));
+});
+test('an odd-week term whose anchor is far away waits for the anchor',()=>{
+ const S=schedule(),r=S.validate([{...row,to:'2026-12-31',weeks:'odd',anchor:'2026-11-02'}])[0];
+ assert.equal(S.next(r,Date.parse('2026-10-08T12:00:00+08:00')).date,'2026-11-02');
+});

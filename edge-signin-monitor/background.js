@@ -10,13 +10,16 @@ async function audio(play){
 function append(event){logQueue=logQueue.catch(()=>{}).then(async()=>{const {logs=[]}=await chrome.storage.local.get('logs');logs.unshift({time:Date.now(),...event});await chrome.storage.local.set({logs:logs.slice(0,300)});});return logQueue;}
 async function mobile(title,text,s){
  const jobs=[];
+ if(Boolean(s.telegram_bot_token)!==Boolean(s.telegram_chat_id))await append({kind:'push',message:'Telegram：配置不完整，请同时填写 Bot Token 和会话 ID'});
  if(s.pushplus_token)jobs.push(['PushPlus','https://www.pushplus.plus/send',{token:s.pushplus_token,title,content:text,template:'txt'}]);
  if(s.serverchan_sendkey)jobs.push(['Server酱',`https://sctapi.ftqq.com/${encodeURIComponent(s.serverchan_sendkey)}.send`,{title,desp:text}]);
  if(s.telegram_bot_token&&s.telegram_chat_id)jobs.push(['Telegram',`https://api.telegram.org/bot${s.telegram_bot_token}/sendMessage`,{chat_id:s.telegram_chat_id,text:title+'\n'+text}]);
  await Promise.all(jobs.map(async([name,url,body])=>{
   try{const origin=new URL(url).origin+'/*';if(!await chrome.permissions.contains({origins:[origin]}))throw Error('permission');
    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});const d=await r.json();
-   const ok=r.ok&&(name==='Telegram'?d.ok:[0,200].includes(d.code));await append({kind:'push',message:name+(ok?'：接口已接受（不代表已送达）':'：拒绝，错误码 '+String(d.code??r.status))});
+   const accepted=name==='Telegram'?d?.ok===true:name==='PushPlus'?d?.code===200:d?.code===0;
+   const apiCode=name==='Telegram'?d?.error_code:d?.code;const code=Number.isSafeInteger(apiCode)?apiCode:r.status;
+   const ok=r.ok&&accepted;await append({kind:'push',message:name+(ok?'：接口已接受（不代表已送达）':'：拒绝，错误码 '+String(code))});
   }catch{await append({kind:'push',message:name+'：发送失败，请检查网络与授权'});}
  }));
 }

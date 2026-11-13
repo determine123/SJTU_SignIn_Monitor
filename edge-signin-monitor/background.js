@@ -69,6 +69,7 @@ async function active(){return Boolean((await chrome.storage.session.get('activa
 const initialClasses=[];
 async function planClasses(){
  for(const a of await chrome.alarms.getAll())if(a.name.startsWith('class:')||a.name==='class-plan')await chrome.alarms.clear(a.name);
+ await chrome.storage.local.set({classDue:{}});
  if(!await active())return;
  const {classEnabled=true,classSchedule=initialClasses,classSent={}}=await chrome.storage.local.get(['classEnabled','classSchedule','classSent']);
  if(!classEnabled)return;

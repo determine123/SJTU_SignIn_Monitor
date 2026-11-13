@@ -70,6 +70,17 @@ async function tick(){
 }
 async function active(){return Boolean((await chrome.storage.session.get('activated')).activated);}
 const initialClasses=[];
+async function clearObsoleteLessons(rows,enabled=true){
+ const {pending={}}=await chrome.storage.local.get('pending');
+ for(const key of Object.keys(pending)){
+  if(!key.startsWith('lesson:'))continue;
+  // Read the fixed date/time suffix; course names may themselves contain pipes.
+  const [date,time]=key.split('|').slice(-2);
+  const classAt=Date.parse(date+'T'+time+':00+08:00');
+  const retained=enabled&&Number.isFinite(classAt)&&rows.some(r=>ClassSchedule.next(r,classAt-1)?.key===key.slice(7));
+  if(!retained)await acknowledge(key);
+ }
+}
 async function planClasses(){
  for(const a of await chrome.alarms.getAll())if(a.name.startsWith('class:')||a.name==='class-plan')await chrome.alarms.clear(a.name);
  await chrome.storage.local.set({classDue:{}});
@@ -104,10 +115,12 @@ chrome.runtime.onMessage.addListener((m,sender,reply)=>{
   if(m.type==='removeClass'){
    const {classSchedule=[]}=await chrome.storage.local.get('classSchedule');
    if(!Number.isInteger(m.index)||m.index<0||m.index>=classSchedule.length||JSON.stringify(classSchedule[m.index])!==JSON.stringify(m.row))throw Error('课表已更改，请重新打开扩展后再移除');
-   await chrome.storage.local.set({classSchedule:classSchedule.filter((_,i)=>i!==m.index)});
+   const rows=classSchedule.filter((_,i)=>i!==m.index);
+   await chrome.storage.local.set({classSchedule:rows});
+   await clearObsoleteLessons(ClassSchedule.validate(rows));
    await planClasses();
   }
-  if(m.type==='saveClasses'){const rows=ClassSchedule.validate(m.rows);await chrome.storage.local.set({classSchedule:rows,classEnabled:Boolean(m.enabled)});await planClasses();}
+  if(m.type==='saveClasses'){const rows=ClassSchedule.validate(m.rows);await chrome.storage.local.set({classSchedule:rows,classEnabled:Boolean(m.enabled)});await clearObsoleteLessons(rows,Boolean(m.enabled));await planClasses();}
   if(m.type==='report')await report(m,sender);
   if(m.type==='save'){const old=await settings();const s={...old,...m.settings};s.interval=Math.max(30,Number(s.interval)||30);s.courses=[...new Set(s.courses.filter(id=>/^\d+$/.test(id)))];await chrome.storage.local.set({settings:s});for(const id of old.courses)if(!s.courses.includes(id))await acknowledge('course-'+id);await chrome.alarms.clear('poll');await bootstrap();if(s.enabled){if(!s.sound)await audio(false);await tick();}else await acknowledge();}
   if(m.type==='test')await alertCourse('95353',null,await settings(),true);

@@ -109,7 +109,7 @@ chrome.runtime.onMessage.addListener((m,sender,reply)=>{
   }
   if(m.type==='saveClasses'){const rows=ClassSchedule.validate(m.rows);await chrome.storage.local.set({classSchedule:rows,classEnabled:Boolean(m.enabled)});await planClasses();}
   if(m.type==='report')await report(m,sender);
-  if(m.type==='save'){const old=await settings();const s={...old,...m.settings};s.interval=Math.max(30,Number(s.interval)||30);s.courses=[...new Set(s.courses.filter(id=>/^\d+$/.test(id)))];await chrome.storage.local.set({settings:s});await chrome.alarms.clear('poll');await bootstrap();if(s.enabled){if(!s.sound)await audio(false);await tick();}else await acknowledge();}
+  if(m.type==='save'){const old=await settings();const s={...old,...m.settings};s.interval=Math.max(30,Number(s.interval)||30);s.courses=[...new Set(s.courses.filter(id=>/^\d+$/.test(id)))];await chrome.storage.local.set({settings:s});for(const id of old.courses)if(!s.courses.includes(id))await acknowledge('course-'+id);await chrome.alarms.clear('poll');await bootstrap();if(s.enabled){if(!s.sound)await audio(false);await tick();}else await acknowledge();}
   if(m.type==='test')await alertCourse('95353',null,await settings(),true);
   if(m.type==='ack'){reply({ok:true,audioStopped:await acknowledge()});return;}
   reply({ok:true});

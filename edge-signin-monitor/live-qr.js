@@ -15,6 +15,8 @@ const rawTab = new URLSearchParams(location.search).get('liveTab');
 const liveTab = rawTab !== null && /^\d+$/.test(rawTab) ? Number(rawTab) : null;
 let stream;
 let timer;
+let frameRequest;
+let lastScan = -Infinity;
 let audio;
 let refreshed = false;
 let session = 0;
@@ -147,10 +149,35 @@ function scan() {
   void refreshAndCatchUp(session);
 }
 
+function scanLatestFrame() {
+  const now = performance.now();
+  if (!stream || now - lastScan < 100) return;
+  lastScan = now;
+  try {
+    scan();
+  } catch {
+    stopCapture('无法读取直播画面，请重新选择直播标签页。');
+  }
+}
+
+function scheduleFrameScan() {
+  if (!stream || typeof preview.requestVideoFrameCallback !== 'function') return;
+  frameRequest = preview.requestVideoFrameCallback(() => {
+    frameRequest = undefined;
+    scanLatestFrame();
+    scheduleFrameScan();
+  });
+}
+
 function stopCapture(message, keepLink = false) {
   if (!keepLink) session++;
   window.liveSpeech.stop();
   clearInterval(timer);
+  if (frameRequest !== undefined) {
+    preview.cancelVideoFrameCallback(frameRequest);
+    frameRequest = undefined;
+  }
+  lastScan = -Infinity;
   stream?.getTracks().forEach(track => track.stop());
   stream = undefined;
   preview.srcObject = null;
@@ -200,13 +227,9 @@ start.onclick = async () => {
     } catch {
       document.getElementById('speech-status').textContent = '无法读取直播音频，扫码继续运行。';
     }
-    timer = setInterval(() => {
-      try {
-        scan();
-      } catch {
-        stopCapture('无法读取直播画面，请重新选择直播标签页。');
-      }
-    }, 250);
+    scheduleFrameScan();
+    // Keep checking when the browser delays video callbacks in the background.
+    timer = setInterval(scanLatestFrame, 250);
   } catch (error) {
     stopCapture(error.name === 'NotAllowedError' ? '共享未授权或已取消。' : '无法开启直播共享，请重试。');
   }

@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>SJTU 签到提醒</title><link rel="stylesheet" href="style.css"><body>
 <header><h1>SJTU 签到提醒</h1><p>点击图标后启用 · 重启 Edge 后需再次点击</p></header>
-<section><h2><a href="live-qr.html" target="_blank" rel="noopener">打开直播扫码</a></h2><p>选择直播标签页，发现签到二维码即鸣叫。无需课程编号或手机推送。</p><button id="catchUpLive">当前直播追帧</button><p id="catchUpResult" role="status"></p></section>
+<section><h2><a id="openLiveQr" href="live-qr.html" target="_blank" rel="noopener">打开直播扫码</a></h2><p>选择直播标签页，发现签到二维码即鸣叫。无需课程编号或手机推送。</p><button id="catchUpLive">当前直播追帧</button><p id="catchUpResult" role="status"></p></section>
 <label class="switch"><input id="enabled" type="checkbox">启用签到监控（本次 Edge 会话）</label>
 <label><input id="autoOpen" type="checkbox" checked>自动打开课程页面（关闭后仅监控手动打开的页面）</label>
 <section><h2>课程与检测</h2><label>课程编号，每行一个<textarea id="courses" rows="3"></textarea></label><label>刷新间隔，秒（至少 30）<input id="interval" type="number" min="30" value="30"></label>

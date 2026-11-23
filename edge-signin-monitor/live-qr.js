@@ -7,9 +7,59 @@ const link = document.getElementById('signin-link');
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', {willReadFrequently: true});
 const seen = new Map();
+const refreshLive = document.getElementById('refresh-live');
+const refreshResult = document.getElementById('refresh-result');
+const rawTab = new URLSearchParams(location.search).get('liveTab');
+const liveTab = rawTab !== null && /^\d+$/.test(rawTab) ? Number(rawTab) : null;
 let stream;
 let timer;
 let audio;
+let refreshed = false;
+let session = 0;
+let originalLiveUrl;
+
+async function schoolTab() {
+  if (!Number.isSafeInteger(liveTab)) return null;
+  const tab = await chrome.tabs.get(liveTab);
+  if (!tab.url) return null;
+  const url = new URL(tab.url);
+  return url.protocol === 'https:' && url.hostname.endsWith('.sjtu.edu.cn') ? tab : null;
+}
+
+async function refreshAndCatchUp(currentSession) {
+  if (!refreshLive.checked || refreshed) return;
+  refreshed = true;
+  try {
+    const tab = await schoolTab();
+    if (!tab || tab.url !== originalLiveUrl || currentSession !== session) {
+      if (currentSession === session) refreshResult.textContent = '原直播标签页已变化，跳过刷新。';
+      return;
+    }
+    refreshResult.textContent = '正在刷新直播，已保留签到链接。';
+    await chrome.tabs.reload(tab.id);
+    for (let attempt = 0; attempt < 15; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (currentSession !== session) return;
+      const reloaded = await schoolTab();
+      if (!reloaded || reloaded.url !== tab.url) break;
+      if (reloaded.status !== 'complete') continue;
+      const result = await chrome.tabs.sendMessage(tab.id,{type:'catchUpLive'}).catch(() => null);
+      if (!result) continue;
+      if (currentSession === session) refreshResult.textContent = result;
+      return;
+    }
+    if (currentSession === session) refreshResult.textContent = '直播尚未恢复播放，请切回直播页检查。';
+  } catch {
+    if (currentSession === session) refreshResult.textContent = '无法刷新直播，请检查原直播标签页。';
+  }
+}
+
+schoolTab().then(tab => {
+  if (tab) {
+    originalLiveUrl = tab.url;
+    document.getElementById('refresh-option').hidden = false;
+  }
+}).catch(() => {});
 
 function attendanceUrl(text) {
   if (!text || /[\s\u0000-\u001f\u007f]/u.test(text)) return null;
@@ -68,16 +118,20 @@ function scan() {
   const sounded = ring();
   status.textContent = '已识别签到二维码 · ' + new Date().toLocaleTimeString('zh-CN') +
     (sounded ? '' : ' · 声音未启用，请点测试声音');
+  void refreshAndCatchUp(session);
 }
 
-function stopCapture(message) {
+function stopCapture(message, keepLink = false) {
+  if (!keepLink) session++;
   clearInterval(timer);
   stream?.getTracks().forEach(track => track.stop());
   stream = undefined;
   preview.srcObject = null;
   preview.hidden = true;
-  link.removeAttribute('href');
-  detection.hidden = true;
+  if (!keepLink) {
+    link.removeAttribute('href');
+    detection.hidden = true;
+  }
   seen.clear();
   start.disabled = false;
   stop.disabled = true;
@@ -86,6 +140,9 @@ function stopCapture(message) {
 
 start.onclick = async () => {
   start.disabled = true;
+  session++;
+  refreshed = false;
+  refreshResult.textContent = '';
   try {
     audio ??= new AudioContext();
     void audio.resume().catch(() => {});
@@ -100,7 +157,10 @@ start.onclick = async () => {
       stopCapture('请在共享窗口中选择「标签页」，然后选中直播。');
       return;
     }
-    track.addEventListener('ended', () => stopCapture('共享已结束。可重新选择直播。'), {once: true});
+    track.addEventListener('ended', () => {
+      const wasRefreshing = refreshed;
+      stopCapture('共享已结束。可重新选择直播。', wasRefreshing);
+    }, {once: true});
     preview.srcObject = stream;
     await preview.play();
     if (track.readyState === 'ended') return;

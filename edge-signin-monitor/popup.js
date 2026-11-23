@@ -8,6 +8,13 @@ $('export').onclick=async()=>{const {logs=[]}=await chrome.storage.local.get('lo
 async function renderClasses(){const {classSchedule=[],classEnabled=true,classDue={}}=await chrome.storage.local.get(['classSchedule','classEnabled','classDue']);$('classEnabled').checked=classEnabled;$('classJson').value=JSON.stringify(classSchedule,null,2);$('classRows').replaceChildren();for(const [i,r] of classSchedule.entries()){const box=document.createElement('div');box.className='entry';const title=document.createElement('strong');title.textContent=r.name+' · 周'+r.days.map(d=>'一二三四五六日'[d-1]).join('、')+' '+r.time+' · '+(r.location||'');box.append(title);for(const [field,label,type] of [['time','上课时间','time'],['from','起始日期','date'],['to','结束日期','date']]){const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.type=type;input.value=r[field];input.dataset.row=i;input.dataset.field=field;box.append(l,input);}const small=document.createElement('div');small.className='small';const due=classDue['class:'+i];small.textContent=due?'下次提醒：'+new Date(due.when).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'当前无待提醒课程';box.append(small);const remove=document.createElement('button');remove.type='button';remove.textContent='移除课程提醒';remove.setAttribute('aria-label','移除 '+r.name+' 的课程提醒');remove.onclick=async()=>{remove.disabled=true;try{const response=await chrome.runtime.sendMessage({type:'removeClass',index:i,row:r});if(!response.ok)throw Error(response.error);$('classResult').textContent='课程已移除，未来提醒已取消';await renderClasses();}catch(e){$('classResult').textContent=e.message;remove.disabled=false;}};box.append(remove);$('classRows').append(box);}}
 async function saveClasses(advanced){try{let rows=JSON.parse($('classJson').value);if(!advanced)for(const input of $('classRows').querySelectorAll('input'))rows[Number(input.dataset.row)][input.dataset.field]=input.value;const response=await chrome.runtime.sendMessage({type:'saveClasses',rows,enabled:$('classEnabled').checked});if(!response.ok)throw Error(response.error);$('classResult').textContent='课表已保存（北京时间，提前 30 分钟）';await renderClasses();}catch(e){$('classResult').textContent=e.message;}}
 $('saveClasses').onclick=()=>saveClasses(false);$('importClasses').onclick=()=>saveClasses(true);
+$('openLiveQr').onclick=async event=>{
+ event.preventDefault();
+ const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+ const page=new URL(chrome.runtime.getURL('live-qr.html'));
+ if(tab?.id!==undefined)page.searchParams.set('liveTab',String(tab.id));
+ await chrome.tabs.create({url:page.href});
+};
 $('catchUpLive').onclick=async()=>{
  const result=$('catchUpResult');
  $('catchUpLive').disabled=true;

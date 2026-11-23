@@ -4,6 +4,8 @@
 
 [直接下载 Edge 安装包 1.1.19](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.19.zip)
 
+[新手图文教程](docs/getting-started.md)涵盖安装、选择课堂标签页、测试通知和确认签到结果。
+
 1. 解压安装包，打开 `edge://extensions`，开启「开发人员模式」。
 2. 选择「加载解压缩的扩展」，选中解压出来的 `edge-signin-monitor` 文件夹。
 3. 在 Edge 播放 Canvas 直播，从扩展面板打开「直播扫码」，点击「选择直播标签页」，共享课堂标签页。
@@ -12,6 +14,8 @@
 有效签到码和普通二维码分开显示。读到二维码后会发桌面通知，普通码内容可在扫码页展开。Canvas 签到链接可按设置自动打开，交大独立签到系统的链接由使用者打开。签到结果以学校页面为准。
 
 已有安装先在 Edge 的扩展详情确认原加载目录，把新版文件复制到该目录后点击「重新加载」，再重新共享直播标签页。
+
+![Edge 扩展面板中的「打开直播扫码」入口](docs/images/extension-popup.png)
 
 ## 其他功能
 

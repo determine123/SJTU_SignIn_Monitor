@@ -143,7 +143,7 @@ function scan() {
   decoder.postMessage({pixels:frame.data.buffer,width,height}, [frame.data.buffer]);
 }
 
-function receiveDecodedFrame(text) {
+function receiveDecodedFrame(codes) {
   decoding = false;
   const now = performance.now();
   scannedFrames++;
@@ -155,11 +155,16 @@ function receiveDecodedFrame(text) {
   for (const [code, lastSeen] of seen) {
     if (now - lastSeen >= 10000) seen.delete(code);
   }
-  if (!text) return;
-  const url = attendanceUrl(text);
-  lastQr.textContent = url ? '最近识别：学校签到二维码' : '最近识别：其他二维码';
+  if (!codes.length) return;
+  const attendance = codes.map(attendanceUrl).filter(Boolean);
+  lastQr.textContent = attendance.length
+    ? '最近识别：' + attendance.length + ' 个学校签到二维码'
+    : '最近识别：' + codes.length + ' 个其他二维码';
   lastQr.hidden = false;
-  if (!url) return;
+  for (const url of attendance) handleAttendance(url, now);
+}
+
+function handleAttendance(url, now) {
   const course = url.searchParams.get('courseCode');
   const history = url.searchParams.get('signHistoryId');
   const independentCode = url.searchParams.get('s');

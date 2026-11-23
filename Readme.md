@@ -45,3 +45,13 @@ python tools/screen_qr.py --show-url
 
 截图仅在本机内存处理。`--show-url` 会把完整链接显示在本机终端，分享终端记录前请去掉签到链接。二维码必须已经出现在可见画面中，因此直播源和播放器的缓冲延迟仍会影响发现时间。
 
+## 直播扫码页的本机语音提醒
+
+在安装了 `qwen-asr`、PyTorch 和 `av` 的环境中，从仓库根目录启动服务。把扩展 ID 替换为 `edge://extensions` 中的实际安装 ID。
+
+```powershell
+python tools/live_asr_bridge.py --model D:\models\Qwen3-ASR-0.6B --extension-id YOUR_EXTENSION_ID
+```
+
+在直播扫码页选择共享 Canvas 标签页并勾选共享音频。服务只绑定本机回环地址，并仅接受指定扩展来源。CPU 推理跟不上播放时会跳过繁忙期间完成的音频片段，扫码仍继续工作。
+

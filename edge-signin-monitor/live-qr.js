@@ -149,6 +149,7 @@ function scan() {
 
 function stopCapture(message, keepLink = false) {
   if (!keepLink) session++;
+  window.liveSpeech.stop();
   clearInterval(timer);
   stream?.getTracks().forEach(track => track.stop());
   stream = undefined;
@@ -175,7 +176,7 @@ start.onclick = async () => {
     void audio.resume().catch(() => {});
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: {displaySurface: 'browser', frameRate: {ideal: 5, max: 10}},
-      audio: false,
+      audio: document.getElementById('speech-enabled').checked,
       selfBrowserSurface: 'exclude',
     });
     const track = stream.getVideoTracks()[0];
@@ -194,6 +195,11 @@ start.onclick = async () => {
     preview.hidden = false;
     stop.disabled = false;
     status.textContent = '正在扫描直播。建议将此页保持在前台。';
+    try {
+      window.liveSpeech.start(stream);
+    } catch {
+      document.getElementById('speech-status').textContent = '无法读取直播音频，扫码继续运行。';
+    }
     timer = setInterval(() => {
       try {
         scan();
@@ -214,6 +220,21 @@ document.getElementById('test-sound').onclick = async () => {
     ring();
   } catch {
     status.textContent = '无法播放提示音，请检查 Edge 的声音设置。';
+  }
+};
+document.getElementById('test-notification').onclick = async () => {
+  try {
+    if (await chrome.notifications.getPermissionLevel() !== 'granted') {
+      status.textContent = 'Edge 未获得桌面通知权限。';
+      return;
+    }
+    await chrome.notifications.create({
+      type:'basic', iconUrl:'icon.png', title:'SJTU 签到提醒测试',
+      message:'看到这条通知后，即可确认桌面提醒可见。',
+    });
+    status.textContent = '已请求 Edge 显示测试通知，请检查 Windows 通知。';
+  } catch {
+    status.textContent = '无法发出桌面通知，请检查 Edge 和 Windows 的通知设置。';
   }
 };
 window.addEventListener('pagehide', () => stopCapture('已停止扫码。'));

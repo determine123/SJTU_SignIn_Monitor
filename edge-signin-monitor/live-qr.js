@@ -75,7 +75,12 @@ function attendanceUrl(text) {
   if (!text || /[\s\u0000-\u001f\u007f]/u.test(text)) return null;
   try {
     const url = new URL(text);
-    if (url.origin !== 'https://mlearning.sjtu.edu.cn' || url.username || url.password) return null;
+    if (url.username || url.password) return null;
+    if (url.origin === 'https://qiandao.sjtu.edu.cn' && url.pathname === '/qd.php') {
+      const codes = url.searchParams.getAll('s');
+      return codes.length === 1 && /^[a-z0-9_-]{1,256}$/i.test(codes[0]) ? url : null;
+    }
+    if (url.origin !== 'https://mlearning.sjtu.edu.cn') return null;
     if (!/^\/lms\/mobile2\/forscan\/?$/.test(url.pathname)) return null;
     const codes = url.searchParams.getAll('courseCode');
     const types = url.searchParams.getAll('fromType');
@@ -102,7 +107,8 @@ function ring() {
 }
 
 async function notifyAttendance(url, fingerprint, currentSession) {
-  const shouldOpen = openSignin.checked && !opened.has(fingerprint);
+  const shouldOpen = url.hostname === 'mlearning.sjtu.edu.cn' &&
+    openSignin.checked && !opened.has(fingerprint);
   if (shouldOpen) opened.add(fingerprint);
   const tabTask = shouldOpen ? chrome.tabs.create({url: url.href, active: true}) : undefined;
   const noticeTask = chrome.notifications.create({
@@ -156,7 +162,10 @@ function receiveDecodedFrame(text) {
   if (!url) return;
   const course = url.searchParams.get('courseCode');
   const history = url.searchParams.get('signHistoryId');
-  const fingerprint = history ? JSON.stringify([course, history]) : course;
+  const independentCode = url.searchParams.get('s');
+  const fingerprint = url.hostname === 'qiandao.sjtu.edu.cn'
+    ? 'qiandao:' + independentCode
+    : JSON.stringify([course, history]);
   const alreadySeen = seen.has(fingerprint) || opened.has(fingerprint);
   seen.set(fingerprint, now);
   link.href = url.href;

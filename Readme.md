@@ -1,7 +1,19 @@
 # SJTU Canvas 签到提醒
 
-来源：https://github.com/IcekyPrime/SJTU_SignIn_Monitor
-保留上游历史；原文档见 Readme.md。
+## 快速开始
+
+[直接下载 Edge 安装包 1.1.19](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.19.zip)
+
+1. 解压安装包，打开 `edge://extensions`，开启「开发人员模式」。
+2. 选择「加载解压缩的扩展」，选中解压出来的 `edge-signin-monitor` 文件夹。
+3. 在 Edge 播放 Canvas 直播，从扩展面板打开「直播扫码」，点击「选择直播标签页」，共享课堂标签页。
+4. 点击「测试桌面通知」，确认 Windows 能显示提醒。直播扫码无需填写课程编号或设置手机推送，语音识别默认关闭。
+
+有效签到码和普通二维码分开显示。读到二维码后会发桌面通知，普通码内容可在扫码页展开。Canvas 签到链接可按设置自动打开，交大独立签到系统的链接由使用者打开。签到结果以学校页面为准。
+
+已有安装先在 Edge 的扩展详情确认原加载目录，把新版文件复制到该目录后点击「重新加载」，再重新共享直播标签页。
+
+## 其他功能
 
 推荐使用 edge-signin-monitor：在 edge://extensions 开启开发人员模式，加载该目录。每次 Edge 启动后点击图标才开始工作。自行填写课程编号及课表，支持课前30分钟、桌面、声音与可选手机提醒。无内置个人课表、推送密钥或登录资料。
 

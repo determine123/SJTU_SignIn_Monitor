@@ -2,6 +2,18 @@ importScripts('schedule.js');
 const defaults={enabled:false,autoOpen:true,interval:30,sound:true,firstActive:true,courses:[],pushplus_token:'',serverchan_sendkey:'',telegram_bot_token:'',telegram_chat_id:''};
 let queue=Promise.resolve();let audioCreating;let logQueue=Promise.resolve();
 const urlFor=id=>`https://oc.sjtu.edu.cn/courses/${id}/external_tools/6650`;
+function courseFromUrl(value){
+ try{
+  const url=new URL(value);
+  if(url.origin==='https://oc.sjtu.edu.cn')return /^\/courses\/(\d+)\/external_tools\/6650\/?$/.exec(url.pathname)?.[1];
+ }catch{}
+}
+function isCampusLogin(value){
+ try{
+  const url=new URL(value);
+  return url.protocol==='https:'&&(url.hostname==='jaccount.sjtu.edu.cn'||(url.hostname==='oc.sjtu.edu.cn'&&/^\/login(?:\/|$)/.test(url.pathname)));
+ }catch{return false;}
+}
 async function settings(){return {...defaults,...(await chrome.storage.local.get('settings')).settings}}
 async function audio(play){
  if(play){if(!await chrome.offscreen.hasDocument()){audioCreating ||= chrome.offscreen.createDocument({url:'offscreen.html',reasons:['AUDIO_PLAYBACK'],justification:'Play attendance alert until acknowledged'}).finally(()=>audioCreating=null);await audioCreating;}}
@@ -36,11 +48,12 @@ async function acknowledge(id){let audioStopped=true;const {pending={}}=await ch
 async function report(m,sender){
  const s=await settings();if(!s.enabled||!await active()||!sender.tab)return;
  const {states={}}=await chrome.storage.local.get('states');
- const byUrl=/\/courses\/(\d+)\/external_tools\/6650/.exec(sender.tab.url||'');
- let id=byUrl?.[1]||Object.keys(states).find(k=>states[k].tabId===sender.tab.id);if(!s.courses.includes(id))return;
+ const login=isCampusLogin(sender.tab.url);
+ const id=courseFromUrl(sender.tab.url)||(login&&Object.keys(states).find(k=>states[k].tabId===sender.tab.id));
+ if(!s.courses.includes(id)||(!m.top&&login))return;
  const state=states[id]||{};state.tabId=sender.tab.id;
- if(m.top&&m.login){state.status='需要登录';state.lastCheck=Date.now();}
- if(m.record){const r=m.record;const previous=state.record;const fresh=previous&&previous.key!==r.key;const becameActive=previous&&!previous.active&&r.active;
+ if(login||(m.top&&m.login)){state.status='需要登录';state.lastCheck=Date.now();}
+ if(m.record&&!login&&!(m.top&&m.login)){const r=m.record;const previous=state.record;const fresh=previous&&previous.key!==r.key;const becameActive=previous&&!previous.active&&r.active;
   state.status='正常 · '+(r.status||'状态未知');state.lastCheck=Date.now();state.record=r;
   const should=!r.ended&&((!previous&&s.firstActive&&r.active)||fresh||becameActive);
   // Store baseline BEFORE external effects, so worker restarts do not repeat alerts.
@@ -52,12 +65,11 @@ async function tick(){
  const s=await settings();if(!s.enabled||!await active())return;
  const {states={}}=await chrome.storage.local.get('states');const tabs=await chrome.tabs.query({});
  for(const id of s.courses){const state=states[id]||{};
-  try{let tab=tabs.find(t=>(t.url||'').split('?')[0]===urlFor(id))||tabs.find(t=>t.id===state.tabId&&/jaccount|\/login/i.test(t.url||''));
+  try{let tab=tabs.find(t=>courseFromUrl(t.url)===id)||tabs.find(t=>t.id===state.tabId&&isCampusLogin(t.url));
   if(!tab&&!s.autoOpen){state.status='页面关闭，请手动打开课程';state.tabId=null;states[id]=state;continue;}
   if(!tab){tab=await chrome.tabs.create({url:urlFor(id),active:false});state.status='等待页面';state.tabId=tab.id;state.opened=Date.now();}
   else if(tab.status==='complete'&&Date.now()-(state.opened||0)>15000){
-   if(/jaccount|\/login/i.test(tab.url||'')){state.status='需要登录';}
-   else if(!/\/courses\/\d+\/external_tools\/6650/.test(tab.url||'')){await chrome.tabs.update(tab.id,{url:urlFor(id)});state.opened=Date.now();}
+   if(isCampusLogin(tab.url)){state.status='需要登录';}
    else {if(Date.now()-(state.lastCheck||state.opened||0)>90000)state.status='未识别签到表格，请检查页面';await chrome.tabs.reload(tab.id);}
   }
   state.tabId=tab.id;states[id]=state;
@@ -82,13 +94,31 @@ async function clearObsoleteLessons(rows,enabled=true){
  }
 }
 async function planClasses(){
- for(const a of await chrome.alarms.getAll())if(a.name.startsWith('class:')||a.name==='class-plan')await chrome.alarms.clear(a.name);
- await chrome.storage.local.set({classDue:{}});
- if(!await active())return;
- const {classEnabled=true,classSchedule=initialClasses,classSent={}}=await chrome.storage.local.get(['classEnabled','classSchedule','classSent']);
- if(!classEnabled)return;
- const due={};for(const [i,r] of ClassSchedule.validate(classSchedule).entries()){const n=ClassSchedule.next(r,Date.now(),classSent);if(n){const name='class:'+i;due[name]={...n,row:r};await chrome.alarms.create(name,{when:n.when});}}
- await chrome.storage.local.set({classDue:due});await chrome.alarms.create('class-plan',{periodInMinutes:60});
+ const {classEnabled=true,classSchedule=initialClasses,classSent={},classDue={}}=await chrome.storage.local.get(['classEnabled','classSchedule','classSent','classDue']);
+ const enabled=classEnabled&&await active();
+ const alarms=new Map((await chrome.alarms.getAll()).map(alarm=>[alarm.name,alarm]));
+ const due={};
+ if(enabled){
+  const now=Date.now();
+  for(const [i,row] of ClassSchedule.validate(classSchedule).entries()){
+   const next=ClassSchedule.next(row,now,classSent);
+   if(!next)continue;
+   const name='class:'+i;
+   const previous=classDue[name];
+   if(previous?.key===next.key)next.when=Math.min(previous.when,next.when);
+   due[name]={...next,row};
+  }
+ }
+ await chrome.storage.local.set({classDue:due});
+ for(const name of alarms.keys()){
+  if((name.startsWith('class:')&&!due[name])||(name==='class-plan'&&!enabled))await chrome.alarms.clear(name);
+ }
+ for(const [name,event] of Object.entries(due)){
+  if(classDue[name]?.key!==event.key||!alarms.has(name)||classDue[name].when!==event.when){
+   await chrome.alarms.create(name,{when:event.when});
+  }
+ }
+ if(enabled&&!alarms.has('class-plan'))await chrome.alarms.create('class-plan',{periodInMinutes:60});
 }
 async function classReminder(name){
  const {classDue={},classSent={},classEnabled=true}=await chrome.storage.local.get(['classDue','classSent','classEnabled']);const event=classDue[name];

@@ -23,3 +23,13 @@ Python 版：pip install -r requirements-lock.txt。将示例配置复制到 dat
 课表起始日期距今超过两周时，扩展也会从课程起始日期寻找第一节有效课程，并按上课前30分钟安排提醒。停课日期与课程结束日期仍生效。
 
 连续停课超过两周时，会继续寻找下一节有效课程；单双周第一周的 anchor 在未来时，从该周开始规划，不提前发出提醒。
+## 本地 Qwen3-ASR 转写测试
+
+在独立 Python 环境中安装 `qwen-asr` 和适合本机的 PyTorch，下载 [Qwen3-ASR-0.6B 模型](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) 到本地目录。运行时直接读取本地文件，可一次传入多段音频，模型只加载一次。
+
+```powershell
+python tools/local_asr.py recording.wav --model D:\models\Qwen3-ASR-0.6B --language Chinese --keyword 签到 --keyword 点名
+```
+
+输出每段音频的转写文本、匹配关键词、模型加载耗时和推理耗时。默认自动选择 CUDA 或 CPU，可用 `--device cpu` 固定测试设备。关键词匹配用于提示，结果取决于源音频内容与质量。
+

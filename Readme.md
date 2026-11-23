@@ -33,3 +33,15 @@ python tools/local_asr.py recording.wav --model D:\models\Qwen3-ASR-0.6B --langu
 
 输出每段音频的转写文本、匹配关键词、模型加载耗时和推理耗时。默认自动选择 CUDA 或 CPU，可用 `--device cpu` 固定测试设备。关键词匹配用于提示，结果取决于源音频内容与质量。
 
+## Windows 全屏二维码提醒
+
+```powershell
+python -m pip install -r requirements-qr.txt
+python tools/screen_qr.py --test-sound
+python tools/screen_qr.py --show-url
+```
+
+把 Canvas 直播留在可见的屏幕上。脚本约每秒扫描一次所有显示器，发现上海交大移动学习的签到二维码时鸣叫并提示，按 Ctrl+C 停止。同一个码持续可见时只提醒一次，离开画面至少 10 秒后再出现会重新提醒。签到请在学校页面手动确认。
+
+截图仅在本机内存处理。`--show-url` 会把完整链接显示在本机终端，分享终端记录前请去掉签到链接。二维码必须已经出现在可见画面中，因此直播源和播放器的缓冲延迟仍会影响发现时间。
+

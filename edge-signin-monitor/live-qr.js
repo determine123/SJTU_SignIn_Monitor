@@ -113,7 +113,7 @@ start.onclick = async () => {
       } catch {
         stopCapture('无法读取直播画面，请重新选择直播标签页。');
       }
-    }, 500);
+    }, 250);
   } catch (error) {
     stopCapture(error.name === 'NotAllowedError' ? '共享未授权或已取消。' : '无法开启直播共享，请重试。');
   }

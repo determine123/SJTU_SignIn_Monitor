@@ -96,14 +96,14 @@ function ring() {
 async function notifyAttendance(url, fingerprint, currentSession) {
   const shouldOpen = openSignin.checked && !opened.has(fingerprint);
   if (shouldOpen) opened.add(fingerprint);
-  const tasks = [chrome.notifications.create({
+  const tabTask = shouldOpen ? chrome.tabs.create({url: url.href, active: true}) : undefined;
+  const noticeTask = chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icon.png',
     title: '发现 SJTU 签到二维码',
     message: shouldOpen ? '请在学校签到页确认签到结果。' : '请返回直播扫码页查看签到链接。',
-  })];
-  if (shouldOpen) tasks.push(chrome.tabs.create({url: url.href, active: true}));
-  const [notice, tab] = await Promise.allSettled(tasks);
+  });
+  const [notice, tab] = await Promise.allSettled([noticeTask, tabTask]);
   if (currentSession !== session) return;
   const details = [];
   if (tab?.status === 'rejected') {

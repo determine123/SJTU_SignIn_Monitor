@@ -13,8 +13,11 @@
   <button id="test-sound">测试声音</button>
   <button id="test-notification">测试桌面通知</button>
   <label><input type="checkbox" id="open-signin" checked> 识别后自动打开学校签到页</label>
-  <label><input type="checkbox" id="speech-enabled" checked> 识别直播中的中英文签到语音（本机 Qwen ASR）</label>
-  <p id="speech-status" role="status"></p>
+  <details>
+    <summary>可选语音提醒</summary>
+    <label><input type="checkbox" id="speech-enabled"> 识别直播中的中英文签到语音（本机 Qwen ASR）</label>
+    <p id="speech-status" role="status"></p>
+  </details>
   <label id="refresh-option" hidden><input type="checkbox" id="refresh-live"> 发现签到码后刷新原直播并追帧</label>
   <p id="refresh-result" role="status"></p>
   <p id="status" role="status">等待选择直播标签页。</p>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SJTU 直播扫码</title>
+<link rel="stylesheet" href="style.css">
+<body class="live-qr">
+<main>
+  <h1>SJTU 直播扫码</h1>
+  <p>先播放 Canvas 直播，再选择共享直播标签页。保持本页、直播和 Edge 开着，电脑勿休眠。</p>
+  <button id="start">选择直播标签页</button>
+  <button id="stop" disabled>停止扫码</button>
+  <button id="test-sound">测试声音</button>
+  <p id="status" role="status">等待选择直播标签页。</p>
+  <p id="detection" hidden><a id="signin-link" target="_blank" rel="noopener noreferrer">打开学校签到页</a></p>
+  <video id="preview" muted playsinline aria-label="共享直播预览" hidden></video>
+</main>
+<script src="jsQR.js"></script>
+<script src="live-qr.js"></script>
+</body>
+</html>

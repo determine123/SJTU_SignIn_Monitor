@@ -6,7 +6,8 @@ import zipfile
 
 ASSETS = ('manifest.json', 'background.js', 'parser.js', 'content.js', 'schedule.js',
           'popup.html', 'popup.js', 'style.css', 'offscreen.html',
-          'offscreen.js', 'icon.png', 'alert.wav', 'README.md')
+          'offscreen.js', 'live-qr.html', 'live-qr.js', 'jsQR.js',
+          'jsQR-LICENSE.txt', 'icon.png', 'alert.wav', 'README.md')
 
 
 def build(source, destination):

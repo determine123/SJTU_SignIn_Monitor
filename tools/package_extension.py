@@ -6,7 +6,7 @@ import zipfile
 
 ASSETS = ('manifest.json', 'background.js', 'parser.js', 'content.js', 'schedule.js',
           'popup.html', 'popup.js', 'style.css', 'offscreen.html',
-          'offscreen.js', 'live-qr.html', 'live-qr.js', 'live-audio.js', 'live-catchup.js', 'jsQR.js',
+          'offscreen.js', 'live-qr.html', 'live-qr.js', 'live-qr-worker.js', 'live-audio.js', 'live-catchup.js', 'jsQR.js',
           'jsQR-LICENSE.txt', 'icon.png', 'alert.wav', 'README.md')
 
 

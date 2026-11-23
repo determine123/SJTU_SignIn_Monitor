@@ -4,6 +4,8 @@ const preview = document.getElementById('preview');
 const status = document.getElementById('status');
 const detection = document.getElementById('detection');
 const link = document.getElementById('signin-link');
+const scanStats = document.getElementById('scan-stats');
+const lastQr = document.getElementById('last-qr');
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', {willReadFrequently: true});
 const seen = new Map();
@@ -21,6 +23,10 @@ let audio;
 let refreshed = false;
 let session = 0;
 let originalLiveUrl;
+let decoder;
+let decoding = false;
+let scannedFrames = 0;
+let lastStats = -Infinity;
 
 async function schoolTab() {
   if (!Number.isSafeInteger(liveTab)) return null;
@@ -117,7 +123,7 @@ async function notifyAttendance(url, fingerprint, currentSession) {
 }
 
 function scan() {
-  if (preview.readyState < 2 || !preview.videoWidth) return;
+  if (!decoder || decoding || preview.readyState < 2 || !preview.videoWidth) return;
   const scale = Math.min(1, 1920 / Math.max(preview.videoWidth, preview.videoHeight));
   const width = Math.max(1, Math.round(preview.videoWidth * scale));
   const height = Math.max(1, Math.round(preview.videoHeight * scale));
@@ -127,12 +133,26 @@ function scan() {
   }
   context.drawImage(preview, 0, 0, width, height);
   const frame = context.getImageData(0, 0, width, height);
-  const qr = jsQR(frame.data, width, height, {inversionAttempts: 'dontInvert'});
+  decoding = true;
+  decoder.postMessage({pixels:frame.data.buffer,width,height}, [frame.data.buffer]);
+}
+
+function receiveDecodedFrame(text) {
+  decoding = false;
   const now = performance.now();
+  scannedFrames++;
+  if (now - lastStats >= 1000) {
+    lastStats = now;
+    scanStats.textContent = '共享画面 ' + preview.videoWidth + ' × ' + preview.videoHeight +
+      ' · 已检查 ' + scannedFrames + ' 帧 · 最近检查 ' + new Date().toLocaleTimeString('zh-CN');
+  }
   for (const [code, lastSeen] of seen) {
     if (now - lastSeen >= 10000) seen.delete(code);
   }
-  const url = attendanceUrl(qr?.data);
+  if (!text) return;
+  const url = attendanceUrl(text);
+  lastQr.textContent = url ? '最近识别：学校签到二维码' : '最近识别：其他二维码';
+  lastQr.hidden = false;
   if (!url) return;
   const course = url.searchParams.get('courseCode');
   const history = url.searchParams.get('signHistoryId');
@@ -173,6 +193,10 @@ function stopCapture(message, keepLink = false) {
   if (!keepLink) session++;
   window.liveSpeech.stop();
   clearInterval(timer);
+  decoder?.terminate();
+  decoder = undefined;
+  decoding = false;
+  scanStats.hidden = true;
   if (frameRequest !== undefined) {
     preview.cancelVideoFrameCallback(frameRequest);
     frameRequest = undefined;
@@ -198,6 +222,9 @@ start.onclick = async () => {
   refreshed = false;
   opened.clear();
   refreshResult.textContent = '';
+  scannedFrames = 0;
+  lastStats = -Infinity;
+  lastQr.hidden = true;
   try {
     audio ??= new AudioContext();
     void audio.resume().catch(() => {});
@@ -221,6 +248,11 @@ start.onclick = async () => {
     if (track.readyState === 'ended') return;
     preview.hidden = false;
     stop.disabled = false;
+    decoder = new Worker('live-qr-worker.js');
+    decoder.onmessage = event => receiveDecodedFrame(event.data);
+    decoder.onerror = () => stopCapture('二维码解码器异常，请重新共享直播标签页。');
+    scanStats.textContent = '正在等待首帧扫描结果…';
+    scanStats.hidden = false;
     status.textContent = '正在扫描直播。建议将此页保持在前台。';
     try {
       window.liveSpeech.start(stream);

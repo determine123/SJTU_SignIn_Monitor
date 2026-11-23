@@ -6,10 +6,14 @@ const detection = document.getElementById('detection');
 const link = document.getElementById('signin-link');
 const scanStats = document.getElementById('scan-stats');
 const lastQr = document.getElementById('last-qr');
+const otherQr = document.getElementById('other-qr');
+const otherQrSummary = document.getElementById('other-qr-summary');
+const otherQrText = document.getElementById('other-qr-text');
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', {willReadFrequently: true});
 const seen = new Map();
 const opened = new Set();
+const recentOtherCodes = new Set();
 const openSignin = document.getElementById('open-signin');
 const refreshLive = document.getElementById('refresh-live');
 const refreshResult = document.getElementById('refresh-result');
@@ -27,6 +31,7 @@ let decoder;
 let decoding = false;
 let scannedFrames = 0;
 let lastStats = -Infinity;
+let lastOtherNotice = -Infinity;
 
 async function schoolTab() {
   if (!Number.isSafeInteger(liveTab)) return null;
@@ -156,12 +161,36 @@ function receiveDecodedFrame(codes) {
     if (now - lastSeen >= 10000) seen.delete(code);
   }
   if (!codes.length) return;
-  const attendance = codes.map(attendanceUrl).filter(Boolean);
-  lastQr.textContent = attendance.length
-    ? '最近识别：' + attendance.length + ' 个学校签到二维码'
-    : '最近识别：' + codes.length + ' 个其他二维码';
-  lastQr.hidden = false;
-  for (const url of attendance) handleAttendance(url, now);
+  const other = [];
+  for (const code of codes) {
+    const attendance = attendanceUrl(code);
+    if (attendance) handleAttendance(attendance, now);
+    else other.push(code);
+  }
+  handleOtherCodes(other, now);
+}
+
+function handleOtherCodes(codes, now) {
+  const fresh = [];
+  for (const code of codes) {
+    if (recentOtherCodes.has(code)) continue;
+    if (recentOtherCodes.size >= 100) recentOtherCodes.delete(recentOtherCodes.values().next().value);
+    recentOtherCodes.add(code);
+    fresh.push(code);
+  }
+  if (!fresh.length) return;
+  const latest = fresh[fresh.length - 1];
+  otherQrSummary.textContent = '最近一次普通二维码 · ' + new Date().toLocaleTimeString('zh-CN');
+  otherQrText.textContent = latest.length > 512 ? latest.slice(0, 512) + '…' : latest;
+  otherQr.hidden = false;
+  if (now - lastOtherNotice < 5000) return;
+  lastOtherNotice = now;
+  void chrome.notifications.create({
+    type: 'basic', iconUrl: 'icon.png', title: '已读取二维码',
+    message: '是普通二维码。请返回 SJTU 直播扫码页查看识别内容。',
+  }).catch(() => {
+    otherQrSummary.textContent += ' · 桌面通知未发出';
+  });
 }
 
 function handleAttendance(url, now) {
@@ -177,6 +206,8 @@ function handleAttendance(url, now) {
   detection.hidden = false;
   if (alreadySeen) return;
   const sounded = ring();
+  lastQr.textContent = '最近一次签到二维码 · ' + new Date().toLocaleTimeString('zh-CN');
+  lastQr.hidden = false;
   status.textContent = '已识别签到二维码 · ' + new Date().toLocaleTimeString('zh-CN') +
     (sounded ? '' : ' · 声音未启用，请点测试声音');
   void notifyAttendance(url, fingerprint, session);
@@ -223,6 +254,10 @@ function stopCapture(message, keepLink = false) {
   if (!keepLink) {
     link.removeAttribute('href');
     detection.hidden = true;
+    lastQr.hidden = true;
+    otherQr.hidden = true;
+    otherQrText.textContent = '';
+    recentOtherCodes.clear();
   }
   seen.clear();
   start.disabled = false;
@@ -239,6 +274,10 @@ start.onclick = async () => {
   scannedFrames = 0;
   lastStats = -Infinity;
   lastQr.hidden = true;
+  otherQr.hidden = true;
+  otherQrText.textContent = '';
+  recentOtherCodes.clear();
+  lastOtherNotice = -Infinity;
   try {
     audio ??= new AudioContext();
     void audio.resume().catch(() => {});

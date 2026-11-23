@@ -7,6 +7,8 @@ const link = document.getElementById('signin-link');
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', {willReadFrequently: true});
 const seen = new Map();
+const opened = new Set();
+const openSignin = document.getElementById('open-signin');
 const refreshLive = document.getElementById('refresh-live');
 const refreshResult = document.getElementById('refresh-result');
 const rawTab = new URLSearchParams(location.search).get('liveTab');
@@ -91,6 +93,27 @@ function ring() {
   return true;
 }
 
+async function notifyAttendance(url, fingerprint, currentSession) {
+  const shouldOpen = openSignin.checked && !opened.has(fingerprint);
+  if (shouldOpen) opened.add(fingerprint);
+  const tasks = [chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icon.png',
+    title: '发现 SJTU 签到二维码',
+    message: shouldOpen ? '请在学校签到页确认签到结果。' : '请返回直播扫码页查看签到链接。',
+  })];
+  if (shouldOpen) tasks.push(chrome.tabs.create({url: url.href, active: true}));
+  const [notice, tab] = await Promise.allSettled(tasks);
+  if (currentSession !== session) return;
+  const details = [];
+  if (tab?.status === 'rejected') {
+    opened.delete(fingerprint);
+    details.push('自动打开失败，可点击下方签到链接');
+  }
+  if (notice.status === 'rejected') details.push('桌面通知未发出');
+  if (details.length) status.textContent += ' · ' + details.join(' · ');
+}
+
 function scan() {
   if (preview.readyState < 2 || !preview.videoWidth) return;
   const scale = Math.min(1, 1920 / Math.max(preview.videoWidth, preview.videoHeight));
@@ -109,15 +132,18 @@ function scan() {
   }
   const url = attendanceUrl(qr?.data);
   if (!url) return;
-  const code = url.searchParams.get('courseCode');
-  const alreadySeen = seen.has(code);
-  seen.set(code, now);
-  if (alreadySeen) return;
+  const course = url.searchParams.get('courseCode');
+  const history = url.searchParams.get('signHistoryId');
+  const fingerprint = history ? JSON.stringify([course, history]) : course;
+  const alreadySeen = seen.has(fingerprint) || opened.has(fingerprint);
+  seen.set(fingerprint, now);
   link.href = url.href;
   detection.hidden = false;
+  if (alreadySeen) return;
   const sounded = ring();
   status.textContent = '已识别签到二维码 · ' + new Date().toLocaleTimeString('zh-CN') +
     (sounded ? '' : ' · 声音未启用，请点测试声音');
+  void notifyAttendance(url, fingerprint, session);
   void refreshAndCatchUp(session);
 }
 
@@ -142,6 +168,7 @@ start.onclick = async () => {
   start.disabled = true;
   session++;
   refreshed = false;
+  opened.clear();
   refreshResult.textContent = '';
   try {
     audio ??= new AudioContext();

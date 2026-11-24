@@ -9,6 +9,7 @@
   <h1>SJTU 直播扫码</h1>
   <p>先播放 Canvas 直播，再选择共享直播标签页。保持本页、直播和 Edge 开着，电脑勿休眠。</p>
   <button id="start">选择直播标签页</button>
+  <button id="manual-signin" disabled>一键扫码签到</button>
   <button id="stop" disabled>停止扫码</button>
   <button id="test-sound">测试声音</button>
   <button id="test-notification">测试桌面通知</button>
@@ -21,6 +22,7 @@
   <label id="refresh-option" hidden><input type="checkbox" id="refresh-live"> 发现签到码后刷新原直播并追帧</label>
   <p id="refresh-result" role="status"></p>
   <p id="status" role="status">等待选择直播标签页。</p>
+  <p id="manual-result" role="status"></p>
   <p id="scan-stats" hidden></p>
   <p id="last-qr" hidden></p>
   <details id="other-qr" hidden>

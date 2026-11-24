@@ -2,7 +2,7 @@
 
 ## 快速开始
 
-[直接下载 Edge 安装包 1.1.19](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.19.zip)
+[直接下载 Edge 安装包 1.1.20](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.20.zip)
 
 [新手图文教程](docs/getting-started.md)涵盖安装、选择课堂标签页、测试通知和确认签到结果。
 
@@ -12,6 +12,8 @@
 4. 点击「测试桌面通知」，确认 Windows 能显示提醒。直播扫码无需填写课程编号或设置手机推送，语音识别默认关闭。
 
 有效签到码和普通二维码分开显示。读到二维码后会发桌面通知，普通码内容可在扫码页展开。Canvas 签到链接可按设置自动打开，交大独立签到系统的链接由使用者打开。签到结果以学校页面为准。
+
+看到签到码时，也可以在扫码页点击「一键扫码签到」，扫描当前画面并打开官方签到页。
 
 已有安装先在 Edge 的扩展详情确认原加载目录，把新版文件复制到该目录后点击「重新加载」，再重新共享直播标签页。
 

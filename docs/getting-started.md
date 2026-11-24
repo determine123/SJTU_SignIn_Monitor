@@ -2,7 +2,7 @@
 
 ## 1. 下载和安装
 
-[直接下载 Edge 安装包 1.1.19](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.19.zip)
+[直接下载 Edge 安装包 1.1.20](https://raw.githubusercontent.com/determine123/SJTU_SignIn_Monitor/main/downloads/sjtu-signin-monitor-1.1.20.zip)
 
 1. 下载 ZIP 并解压。
 2. 在 Windows 的 Edge 地址栏输入 `edge://extensions`，开启「开发人员模式」。
@@ -32,6 +32,8 @@
 ## 4. 查看识别和签到结果
 
 扫码页会分别记录最近一次签到二维码和普通二维码。识别到签到码后，点击「打开学校签到页」可查看学校页面。开启自动打开时，Canvas 移动学习的签到链接会直接打开。交大独立签到系统的链接会留在扫码页供你打开。
+
+看到二维码时也可点「一键扫码签到」。它会主动扫描当前画面，读到有效签到码后打开官方签到页。若提示没读到，请让二维码完整显示后重试。
 
 ![扫码页显示画面检查时间、最近一次签到码和学校签到页链接](images/qr-detected.png)
 

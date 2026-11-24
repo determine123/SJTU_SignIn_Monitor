@@ -1,5 +1,7 @@
 const start = document.getElementById('start');
 const stop = document.getElementById('stop');
+const manualSignin = document.getElementById('manual-signin');
+const manualResult = document.getElementById('manual-result');
 const preview = document.getElementById('preview');
 const status = document.getElementById('status');
 const detection = document.getElementById('detection');
@@ -29,6 +31,8 @@ let session = 0;
 let originalLiveUrl;
 let decoder;
 let decoding = false;
+let manualRequested = false;
+let manualFrame = false;
 let scannedFrames = 0;
 let lastStats = -Infinity;
 let lastOtherNotice = -Infinity;
@@ -111,9 +115,9 @@ function ring() {
   return true;
 }
 
-async function notifyAttendance(url, fingerprint, currentSession) {
+async function notifyAttendance(url, fingerprint, currentSession, manual) {
   const shouldOpen = url.hostname === 'mlearning.sjtu.edu.cn' &&
-    openSignin.checked && !opened.has(fingerprint);
+    !manual && openSignin.checked && !opened.has(fingerprint);
   if (shouldOpen) opened.add(fingerprint);
   const tabTask = shouldOpen ? chrome.tabs.create({url: url.href, active: true}) : undefined;
   const noticeTask = chrome.notifications.create({
@@ -145,11 +149,15 @@ function scan() {
   context.drawImage(preview, 0, 0, width, height);
   const frame = context.getImageData(0, 0, width, height);
   decoding = true;
+  manualFrame = manualRequested;
+  manualRequested = false;
   decoder.postMessage({pixels:frame.data.buffer,width,height}, [frame.data.buffer]);
 }
 
 function receiveDecodedFrame(codes) {
   decoding = false;
+  const manual = manualFrame;
+  manualFrame = false;
   const now = performance.now();
   scannedFrames++;
   if (now - lastStats >= 1000) {
@@ -160,14 +168,31 @@ function receiveDecodedFrame(codes) {
   for (const [code, lastSeen] of seen) {
     if (now - lastSeen >= 10000) seen.delete(code);
   }
-  if (!codes.length) return;
+  const attendance = codes.map(attendanceUrl);
   const other = [];
-  for (const code of codes) {
-    const attendance = attendanceUrl(code);
-    if (attendance) handleAttendance(attendance, now);
-    else other.push(code);
+  for (const [index, url] of attendance.entries()) {
+    if (url) handleAttendance(url, now, manual || manualRequested);
+    else other.push(codes[index]);
   }
   handleOtherCodes(other, now);
+  if (manual) void openManualResult(attendance.find(Boolean), session);
+  if (manualRequested) scanLatestFrame();
+}
+
+async function openManualResult(url, currentSession) {
+  try {
+    if (!url) {
+      manualResult.textContent = '当前画面没有读到学校签到码，请让二维码完整显示后重试。';
+      return;
+    }
+    if (currentSession !== session || !stream) return;
+    await chrome.tabs.create({url:url.href, active:true});
+    if (currentSession === session) manualResult.textContent = '已打开学校签到页，请查看签到结果。';
+  } catch {
+    if (currentSession === session) manualResult.textContent = '自动打开失败，可点下方学校签到页链接。';
+  } finally {
+    if (currentSession === session && stream) manualSignin.disabled = false;
+  }
 }
 
 function handleOtherCodes(codes, now) {
@@ -193,7 +218,7 @@ function handleOtherCodes(codes, now) {
   });
 }
 
-function handleAttendance(url, now) {
+function handleAttendance(url, now, manual) {
   const course = url.searchParams.get('courseCode');
   const history = url.searchParams.get('signHistoryId');
   const independentCode = url.searchParams.get('s');
@@ -210,13 +235,13 @@ function handleAttendance(url, now) {
   lastQr.hidden = false;
   status.textContent = '已识别签到二维码 · ' + new Date().toLocaleTimeString('zh-CN') +
     (sounded ? '' : ' · 声音未启用，请点测试声音');
-  void notifyAttendance(url, fingerprint, session);
+  void notifyAttendance(url, fingerprint, session, manual);
   void refreshAndCatchUp(session);
 }
 
 function scanLatestFrame() {
   const now = performance.now();
-  if (!stream || now - lastScan < 100) return;
+  if (!stream || (!manualRequested && now - lastScan < 100)) return;
   lastScan = now;
   try {
     scan();
@@ -241,6 +266,9 @@ function stopCapture(message, keepLink = false) {
   decoder?.terminate();
   decoder = undefined;
   decoding = false;
+  manualRequested = false;
+  manualFrame = false;
+  manualSignin.disabled = true;
   scanStats.hidden = true;
   if (frameRequest !== undefined) {
     preview.cancelVideoFrameCallback(frameRequest);
@@ -301,6 +329,8 @@ start.onclick = async () => {
     if (track.readyState === 'ended') return;
     preview.hidden = false;
     stop.disabled = false;
+    manualSignin.disabled = false;
+    manualResult.textContent = '';
     decoder = new Worker('live-qr-worker.js');
     decoder.onmessage = event => receiveDecodedFrame(event.data);
     decoder.onerror = () => stopCapture('二维码解码器异常，请重新共享直播标签页。');
@@ -321,6 +351,16 @@ start.onclick = async () => {
 };
 
 stop.onclick = () => stopCapture('已停止扫码。');
+manualSignin.onclick = () => {
+  if (!stream || !decoder || preview.readyState < 2) {
+    manualResult.textContent = '共享画面还没准备好，请等待画面出现。';
+    return;
+  }
+  manualSignin.disabled = true;
+  manualResult.textContent = '正在扫描当前画面…';
+  manualRequested = true;
+  scanLatestFrame();
+};
 document.getElementById('test-sound').onclick = async () => {
   try {
     audio ??= new AudioContext();
